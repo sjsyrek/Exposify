@@ -28,6 +28,17 @@
  * @author steven.syrek@gmail.com (Steven Syrek)
  */
 
+/**
+ * NOTE: Exposify will not work out-of-the-box if you just copy and paste the code
+ * into a Google Scripts Editor. You will need to activate the Drive API in both
+ * Resources : Advanced Google services and the Developers Console for the project.
+ * If you have not already set up a project in the Developers Console, you will
+ * need to create one, associate it with the script project, and, in the Script
+ * Editor, create a Script Property called DEVELOPER_KEY with your API key as the
+ * value. In addition, you will need to enable the Google Picker API in the
+ * Developers Console in order for the file picking user interface to function.
+ */
+
 //TODO: publish Exposify to GitHub
 //TODO: use sheet.appendRow() instead of getLastRow() where possible
 //TODO: add end comment to every function
