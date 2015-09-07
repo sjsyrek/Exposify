@@ -52,6 +52,7 @@
 //TODO: automatically produce warning rosters and final gradebooks
 //TODO: autotmatically add students to Contacts
 //TODO: make error messages more informative
+//TODO: make sure error logging is correct format
 
 
 /**
@@ -523,6 +524,7 @@ function Exposify() {
 function exposifySetupNewGradebook() { expos.executeMenuCommand.call(expos, SETUP_NEW_GRADEBOOK); }
 function exposifySetupAddStudents() { expos.executeMenuCommand.call(expos, SETUP_ADD_STUDENTS); }
 
+// old functions to be replaced
 function exposifySetupCreateFolderStructure() { return expos.setupCreateFolderStructure(); }
 function exposifySetupSharedFolders() { return expos.setupSharedFolders(); }
 function exposifyAssignmentsCopy() { return expos.assignmentsCopy(); }
@@ -587,6 +589,323 @@ Exposify.prototype.createHtmlDialog = function(dialog) {
 } // end Exposify.prototype.createHtmlDialog
 
 
+// Insert student names into spreadsheet
+Exposify.prototype.doAddStudents(students, sheet) {
+  try {
+    var studentList = [];
+    var fullRange = sheet.getRange(STUDENT_ID_RANGE);
+    fullRange.clearContent();
+    var range = sheet.getRange(4, 1, students.length, 2); // get a range of two columns and a number of rows equal to the number of students to insert
+    students.forEach( function(student) { studentList.push([student.name, student.netid]); } ); // add a row to the temporary studentList array for each student
+    range.setValues(studentList); // set the value of the whole range at once, so I don't call the API more than necessary
+  } catch(e) {
+    this.logError('Exposify.prototype.doAddStudents', e);
+  }
+} // end Exposify.prototype.doAddStudents
+
+
+// Format gradebook
+Exposify.prototype.doFormatSheet = function(newCourse) {
+  var course = newCourse.course;
+  var sheet = newCourse.sheet;
+  try {
+    var section = course.section; // create a series of variables from the Course object passed in, for legibility
+    var semester = course.semester;
+    var courseNumber = course.number;
+    var courseFormat = COURSE_FORMATS[courseNumber];
+    var rows = course.rows;
+    var lastRow = rows.length;
+    var columns = course.columns;
+    var lastColumn = columns.length;
+    var courseTitle = course.nameSection;
+    var columnHeadings = course.columnHeadings;
+    var gradeValidations = course.gradeValidations;
+    var headingRange = sheet.getRange(3, 1, 1, columnHeadings.length); // cell range for gradebook column headings
+    var centerRange = sheet.getRange(3, 3, lastRow, lastColumn); // cell range for central part of gradebook, where grade data is actually entered
+    var topRowsRange = sheet.getRange(1, 1, 3, lastColumn); // rows to keep at the top of the spreadsheet view
+    var titleRange = sheet.getRange('A1:A2'); // course name and semester titles
+    var mergeTitleRange = sheet.getRange('A1:B2'); // we want to merge each of these with the following cell to create a bigger space for the titles
+    var mergeRange = sheet.getRange(1, 3, 2, lastColumn - 2); // merge the empty columns in the top rows so it looks nicer
+    var cornerRange = sheet.getRange('A3:B3'); // where the frozen rows and columns intersect
+    var fullRange = sheet.getRange(1, 1, lastRow, lastColumn); // range of the entire gradebook
+    var maxRange = sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()); // range of the entire visible sheet
+    sheet.clear(); // clear all values and formatting
+    maxRange.clearDataValidations(); // this has to be done separately
+    sheet.setFrozenRows(0); // make sure only the correct rows and columns are frozen when formatting is complete
+    sheet.setFrozenColumns(0);
+    fullRange.breakApart(); // break apart any merged cells
+    for (i = 1; i <= lastRow; i++) { // set row heights
+      sheet.setRowHeight(i, rows[i-1]);
+    }
+    for (i = 1; i <= lastColumn; i++) { // set column widths
+      sheet.setColumnWidth(i, columns[i-1]);
+    }
+    fullRange.setFontFamily([FONT]); // set font
+    fullRange.setFontSize(11); // student names and grades font size
+    titleRange.setFontSizes([[16],[14]]); // titles font size
+    headingRange.setFontSize(9); // headings font size
+    cornerRange.setHorizontalAlignment('center'); // set text alignments
+    cornerRange.setVerticalAlignment('middle');
+    centerRange.setHorizontalAlignment('center');
+    centerRange.setVerticalAlignment('middle');
+    fullRange.setBorder(true, true, true, true, true, true); // set cell borders
+    titleRange.setValues([[courseTitle],[semester]]); // set titles
+    mergeTitleRange.mergeAcross(); // merge title cells
+    mergeRange.mergeAcross(); // merge other cells in the first two rows
+    headingRange.setValues([columnHeadings]); // set column headings
+    headingRange.setWrap(true); // set word wrapping
+    topRowsRange.setBackground(COLOR_SHADED); // set background color of frozen rows
+    sheet.setFrozenRows(3); // freeze first three rows (sorry, magic number)
+    sheet.setFrozenColumns(2); // freeze first two columns (sorry, another magic number)
+    if (gradeValidations !== undefined) {
+      this.setGradeValidations(sheet, gradeValidations); // set data validations for grades
+    }
+    if (courseFormat.hasOwnProperty('finalGradeFormulaRange')) {
+      this.doSetFormulas(sheet, courseNumber); // apply final grade formula to this range
+    }
+    if (course.meetingDays.length !== 0) {
+      this.doFormatSheetAddAttendanceRecord(course, sheet); // add an attendance sheet if the user asked for it
+    }
+    doSetShadedRows(sheet); // set alternating color of student rows
+    sheet.setName(course.numberSection); // name sheet with section number
+  } catch(e) {
+    this.logError('Exposify.prototype.doFormatSheet', e);
+  }
+} // end Exposify.prototype.doFormatSheet
+
+
+// Create attendance sheet to accompany gradebook, if requested
+Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
+  try {
+    var courseData = this.getCourseData(course); // get an object representing the date the semester begins, which days of the week it meets, and the duration in weeks it meets for
+    var semesterBeginsDate = courseData.semesterBeginsDate;
+    var meetingDays = courseData.meetingDays;
+    var meetingWeeks = courseData.meetingWeeks;
+    var schedule = this.doMakeSchedule(semesterBeginsDate, meetingDays, meetingWeeks); // calculate a schedule of actual days from this information to insert into the spreadsheet
+    var width = schedule.length; // number of meetings
+    var begin = sheet.getLastColumn() + 1; // place to insert attendance sheet in spreadsheet
+    var end = begin + width - 1; // end of attendance sheet
+    var maxColumns = sheet.getMaxColumns();
+    var columnsToAdd = schedule.length - (maxColumns - (begin - 1)); // extend the length of the spreadsheet, if necessary
+    if (columnsToAdd > 0) {
+      sheet.insertColumnsAfter(maxColumns, columnsToAdd);
+    }
+    var attendanceRange = sheet.getRange(3, begin, 1, width); // headings for dates, one row in height
+    var mergeTitleRange = sheet.getRange(1, begin, 2, width); // merge top rows to look nicer
+    var shadedRange = sheet.getRange(1, begin, 3, width); // we need to add alternate row shading for the attendance sheet, too
+    var lastRow = course.rows.length;
+    var borderRange = sheet.getRange(1, begin, lastRow, width); // and add borders
+    for (i = begin; i <= end; i++) { // set column widths
+      sheet.setColumnWidth(i, ATTENDANCE_SHEET_COLUMN_WIDTH);
+    }
+    attendanceRange.setFontFamily([FONT]); // set font
+    attendanceRange.setFontSize(9); // set font size
+    attendanceRange.setHorizontalAlignment('left'); // set text alignments
+    attendanceRange.setVerticalAlignment('middle');
+    borderRange.setBorder(true, true, true, true, true, true); // set cell borders
+    attendanceRange.setValues([schedule]); // set titles, this call does the important work
+    mergeTitleRange.merge(); // merge title cells
+    shadedRange.setBackground(COLOR_SHADED); // set background color of top rows
+  } catch(e) {
+    this.logError('Exposify.prototype.doFormatSheetAddAttendanceRecord', e);
+  }
+} // end Exposify.prototype.doFormatSheetAddAttendanceRecord
+
+
+Exposify.prototype.doMakeGradeValidations = function(courseNumber) {
+  try {
+    var gradeValidations = new GradeValidationSet();
+    var courseFormats = COURSE_FORMATS[courseNumber];
+    if (courseFormats.hasOwnProperty('gradeValidations')) {
+      var gradeValidationInfo = courseFormats.gradeValidations.getGradeValidations();
+      var nonNumeric = gradeValidationInfo.nonNumeric;
+      nonNumeric.forEach(function(validationSet) {
+        var newDataValidation = SpreadsheetApp.newDataValidation()
+        .requireValueInList(validationSet.requiredValues, (validationSet.requiredValues.length > 1 ? true : false))
+        .setAllowInvalid(false)
+        .setHelpText(validationSet.helpText)
+        .build();
+        gradeValidations.validations.push(newDataValidation);
+        gradeValidations.ranges.push(validationSet.rangeToValidate);
+      });
+      if (gradeValidationInfo.hasOwnProperty('numeric')) {
+        var numeric = gradeValidationInfo.numeric;
+        numeric.forEach(function(validationSet) {
+          var newDataValidation = SpreadsheetApp.newDataValidation()
+          .requireNumberBetween(0, 100)
+          .setAllowInvalid(false)
+          .setHelpText(validationSet.helpText)
+          .build();
+          gradeValidations.validations.push(newDataValidation);
+          gradeValidations.ranges.push(validationSet.rangeToValidate);
+        });
+      }
+      Logger.log(gradeValidations);
+      return gradeValidations; // neat and tidy package
+    }
+  } catch(e) {
+    this.logError('Exposify.prototype.doMakeGradeValidations', e);
+  }
+} // end Exposify.prototype.doMakeGradeValidations
+
+
+// Calculates a schedule for a course, which is complicated so I don't know if it will always be 100% accurate but probably good enough
+// I am going to burn in hell for writing this function.
+Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, meetingWeeks) {
+  try {
+    var day = 1;
+    var month = semesterBeginsDate.getMonth();
+    var year = semesterBeginsDate.getFullYear();
+    var firstDayOfClass = semesterBeginsDate.getDate();
+    var lastDay = getLastDayOfMonth(month, year);
+    var daysToMeet = [];
+    var firstDayOfSpringBreak = getFirstDayOfSpringBreak(year); // get first day of Spring Break, so we don't include dates for that week
+    var tuesdayOfThanksgivingWeek = getTuesdayOfThanksgivingWeek(year); // get Tuesday of Thanksgiving week, so we can take change of day designations into account
+    var alternateDesignationYear = getAlternateDesignationYearStatus(year); // except on some years, when 9/1 is a Tuesday, the designation days are different
+    for (day = firstDayOfClass, week = 1; day < lastDay + 1 && week < meetingWeeks + 1; day++) { // check every single day in the semester to see if it belongs in the course schedule
+      if (month === 2 && day === firstDayOfSpringBreak) { // if the day we're checking is the first day of Spring Break, just skip 9 days
+        day += 9;
+        week += 2;
+      }
+      var dayToCheck = (new Date(year, month, day)).getDay();
+      if (month === 8 && day === 8 && alternateDesignationYear) { // pretend today is Monday, September 1 if we're checking September 8 and September 1 was a Tuesday
+        dayToCheck = 1;
+      }
+      if (month === 10 && (day >= tuesdayOfThanksgivingWeek && day <= tuesdayOfThanksgivingWeek + 5)) { // changes of designation during Thanksgiving week
+        if (day === tuesdayOfThanksgivingWeek) {
+          dayToCheck = (alternateDesignationYear ? 2 : 4); // Tuesday becomes Thursday, unless it's one of those weird years (2015 and 2020) when it stays a Tuesday
+        } else if (day === (tuesdayOfThanksgivingWeek + 1)) { // Wednesday becomes Friday
+          dayToCheck = 5;
+        } else {
+          day += 4; // skip the rest
+          dayToCheck = 1; // pretend it's Monday
+          week++;
+          if (day > 30) { // make sure we didn't go over 30 days for November by skipping 4 days at the end of the month
+            day = day - 30;
+            month++;
+            lastDay = getLastDayOfMonth(month, year);
+          }
+        }
+      }
+      if (meetingDays.some( function(meetingDay) { return dayToCheck === DAYS[meetingDay]; })) { // if the day we're checking is one of the days the class meets, add it to a running list of meeting days
+        daysToMeet.push((month + 1) + '/\n' + day); // create the actual text that will appear in the spreadsheet for each meeting day, i.e. 9/1 with a carriage return after the forward slash to look nice and avoid automatic date formatting
+      }
+      if (day === lastDay) { // if we're at the last day of the month, reset the day counter to 0, increase the month counter, and calculate the last day of the new month
+        day = 0;
+        month++;
+        lastDay = getLastDayOfMonth(month, year);
+      }
+      if (dayToCheck === 6) { // if the day we're checking is Saturday, increment the week counter
+        week++;
+      }
+    }
+    return daysToMeet; // an array of text dates ready to be inserted directly into the spreadsheet
+  } catch(e) {
+    this.logError('Exposify.prototype.doMakeSchedule', e);
+  }
+} // end Exposify.prototype.doMakeSchedule
+
+// Extracts student names and ids from the 'participant data file compatible with Microsoft Excel' downloadable from the Site Info page of a Sakai course site.
+// Will only work if that file has been unmodified. This function works whether or not the file has been converted from csv (comma separated values) format into Google Sheets format.
+function doParseSpreadsheet(id, mimeType) {
+  try {
+    var students = [];
+    if (mimeType === 'application/vnd.google-apps.spreadsheet') {
+      var file = SpreadsheetApp.openById(id); // open file to retrieve data
+      var page = file.getSheets()[0];
+      var range = page.getRange('A2:F24').getValues();
+      for (row = 0; row < 23; row++) {
+        if (range[row][0] && range[row][4] === 'Student') {
+          students.push(new Student(range[row][0], range[row][1])); // create list of Student objects from spreadsheet
+        }
+      }
+    } else if (mimeType === 'text/csv') {
+      var file = DriveApp.getFileById(id);
+      var data = file.getAs('text/csv').getDataAsString(); // convert file data into a string (can't open csv files in Google Drive)
+      var csv = Utilities.parseCsv(data);
+      var length = csv.length;
+      for (row = 1; row < length; row++) {
+        if (csv[row][0] && csv[row][4] === 'Student') {
+          students.push(new Student(csv[row][0], csv[row][1])); // create list of Student objects from csv file
+        }
+      }
+    }
+    return students;
+  } catch(e) {
+    logError('doParseSpreadsheet', e);
+  }
+}
+
+
+Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
+  try {
+    var courseFormat = COURSE_FORMATS[courseNumber];
+    var calcRange = sheet.getRange(courseFormat.finalGradeFormulaRange);
+    var formula = courseFormat.finalGradeFormula;
+    var formulas = [];
+    for (i = 4; i < 26; i++) { // 22 students maximum
+      formulas.push([formula.replace('$', i, 'g')]); // substitle '$' wildcard with the appropriate row number for each cell to which we are applying the final grade formula
+    }
+    calcRange.setFormulas(formulas);
+  } catch(e) {
+    this.logError('Exposify.prototype.doSetFormulas', e);
+  }
+} // end Exposify.prototype.doFormatSheetSpecialRules
+
+
+// Sets a background color on alternating rows to make them easier to read.
+function doSetShadedRows(sheet) {
+  try {
+    var sheetLastRow = sheet.getLastRow();
+    var lastRow = (sheetLastRow === 3 ? 25 : sheetLastRow); // if the sheet doesn't have any students listed in it, process 25 rows, otherwise process the rows that contain student data
+    var lastColumn = sheet.getLastColumn();
+    var rows = lastRow - 3;
+    var shadedRange = sheet.getRange(4, 1, rows, lastColumn);
+    var blankColor = COLOR_BLANK;
+    var shadedColor = COLOR_SHADED;
+    var blankRow = [];
+    var shadedRow = [];
+    var newRows = [];
+    for (i = 0; i < lastColumn; i++) { // generate array of alternating colors of the correct length
+      blankRow.push(blankColor);
+      shadedRow.push(shadedColor);
+    }
+    for (i = 4; i <= lastRow; i++) {
+      i % 2 === 0 ? newRows.push(blankRow) : newRows.push(shadedRow); // generate array of alternating shaded and blank rows so I only have to call setBackgrounds once
+    }
+    shadedRange.setBackgrounds(newRows); // set row backgrounds
+  } catch(e) {
+    logError('doSetShadedRows', e);
+  }
+}
+
+// Switch student name order from last name first to first name last or vice versa
+function doSwitchStudentNames(sheet) {
+  try {
+    var range = sheet.getRange(STUDENT_ID_RANGE).getValues();
+    var students = [];
+    for (i = 0; i < 22; i++) {
+      if (range[i][0] !== '' && range[i][1] !== '') { // only check rows that actually contain student data
+        students.push(new Student(range[i][0], range[i][1]));
+      }
+    }
+    for (i = 0; i < students.length; i++) {
+      var name = students[i].name;
+      if (name.match(/.+,.+/)) { // match student names against a regular expression pattern to determine whether or not the name strings contain commas... I hope there aren't any people whose names actually contain commas
+        students[i].name = getNameFirstLast(name);
+      } else {
+        students[i].name = getNameLastFirst(name);
+      }
+    }
+    doAddStudents(students, sheet); // repopulate the sheet with the student names
+    sheet.sort(1);
+    doSetShadedRows(sheet); // because the sort will mess them up
+  } catch(e) {
+    logError('doSwitchStudentNames', e);
+  }
+}
+
+
 /**
  * Executes a menu command selected by the user, first displaying an alert and then an
  * HTML dialog box, both provided as arguments and based on object literal constants.
@@ -631,6 +950,64 @@ Exposify.prototype.getActiveSpreadsheet = function() {
 }; // end Exposify.prototype.getActiveSpreadsheet
 
 
+Exposify.prototype.getAlternateDesignationYearStatus = function(year) { // change in designation days are different if September 1 is a Tuesday (see http://senate.rutgers.edu/RLBAckS1003AAcademicCalendarPart2.pdf)
+  var firstDayOfSeptember = (new Date(year, 8, 1)).getDay();
+  return firstDayOfSeptember === 2 ? true : false; // return true if the first day of September of the year being checked is a Tuesday and false otherwise
+} // end Exposify.prototype.getAlternateDesignationYearStatus
+
+// Parse a Course object into a new data object for use in creating a schedule for an attendance sheet, mostly by calculating the date the course begins, a complicated enough operation that I refactored it into a separate function
+Exposify.prototype.getCourseData = function(course) {
+  try {
+    var semester = course.semester; // the semester string, i.e. 'Fall 2015'
+    var semesterYear = semester.match(/\d+/)[0]; // the semester string with the season removed, i.e. '2015'
+    var semesterSeason = semester.match(/\D+/)[0].trim(); // the semester string with the year removed, i.e. 'Fall'
+    var meetingDays = course.meetingDays;
+    var meetingWeeks = 15; // spring and fall courses meet for 15 weeks
+    switch (semesterSeason) {
+      case 'Spring':
+        var semesterMonth = 0; // January = 0
+        var semesterMonthFirstDay = (new Date(semesterYear, semesterMonth, 1)).getDay();
+        var semesterBeginsDay = 15; // if the first day of January is a Tuesday, the semester begins on January 15th
+        if (semesterMonthFirstDay > 2) {
+            semesterBeginsDay = (7 - (semesterMonthFirstDay - 3)) + 14; // if the first day of January is after Tuesday, add 14 days to the number of days between January 1st and the following Tuesday
+        } else if (semesterMonthFirstDay < 2) {
+            semesterBeginsDay = (2 - semesterMonthFirstDay) + 15; // if the first day of January is before Tuesday, add 15 days to the number of days between January 1st and the next Tuesday
+        }
+        break;
+      case 'Fall':
+        var semesterMonth = 8; // September = 8
+        var semesterMonthFirstDay = (new Date(semesterYear, semesterMonth, 1)).getDay();
+        var semesterBeginsDay = 1; // if the first day of September is a Tuesday, the semester begins on September 1st
+        if (semesterBeginsDay > 2) {
+          semesterBeginsDay = (7 - (semesterMonthFirstDay - 3)); // if the first day of September is after Tuesday, calculate the date of the following Tuesday
+        } else if (semesterMonthFirstDay < 2) {
+            semesterBeginsDay = (2 - semesterMonthFirstDay) + 1; // if the first day of September is before Tuesday, calculate the date of the next Tuesday
+        }
+        break;
+      case 'Summer':
+        var summerSection = course.section.match(/\D/)[0]; // use a regular expression to determine the section of the course, A–V
+        var session = SUMMER_SESSIONS[summerSection];
+        var semesterMonth = session[1]; // check which month the course starts in
+        var semesterMonthFirstDay = (new Date(semesterYear, semesterMonth, 1)).getDay();
+        var semesterBeginsDay = session[2]; // check which day of the week the course starts
+        meetingWeeks = session[3]; // check the duration, in weeks, of the course
+        if (semesterMonthFirstDay > session[0]) {
+            semesterBeginsDay = (7 - (semesterMonthFirstDay - (session[0] + 1)) + (semesterBeginsDay - 1)); // calculate the first day of the course (works assuming there is predictability to when summer courses begin)
+        } else if (semesterMonthFirstDay < session[0]) {
+            semesterBeginsDay = (session[0] - semesterMonthFirstDay) + semesterBeginsDay;
+        }
+        break;
+    }
+    var semesterBeginsDate = new Date(semesterYear, semesterMonth, semesterBeginsDay);
+    return {semesterBeginsDate: semesterBeginsDate,
+            meetingDays: meetingDays,
+            meetingWeeks: meetingWeeks};
+  } catch(e) {
+    this.logError('Exposify.prototype.getCourseData', e);
+  }
+} // end Exposify.prototype.getCourseData
+
+
 Exposify.prototype.getCourseTitle = function(sheet) {
   var title = sheet.getRange('A1').getValue(); // the name of the course, from the gradebook
   var courseTitle = title.replace(/(\s\d+)?:/, ' '); // string manipulation to get a folder name friendly version of the course name and section code
@@ -647,6 +1024,12 @@ Exposify.prototype.getDeveloperKey = function() {
   var key = PropertiesService.getScriptProperties().getProperty('DEVELOPER_KEY');
   return key;
 } // end Exposify.prototype.getDeveloperKey
+
+
+Exposify.prototype.getFirstDayOfSpringBreak = function(year) {
+  var firstDayOfMarch = new Date(year, 3, 1).getDay();
+  return firstDayOfMarch + (6 - firstDayOfMarch) + 7; // Spring Break starts the second Saturday of March, so find out the first day of March, add days to get to Saturday, and add 7 to that
+} // end Exposify.prototype.getFirstDayOfSpringBreak
 
 
 /**
@@ -680,6 +1063,28 @@ Exposify.prototype.getHtmlOutputFromFile = function(file) {
 }; // end Exposify.prototype.getHtmlOutputFromFile
 
 
+Exposify.prototype.getLastDayOfMonth = function(month, year) {
+   month += 1;
+   return month === 2 ? year & 3 || !(year % 25) && year & 15 ? 28 : 29 : 30 + (month + (month >> 3 ) & 1); // do some bit twiddling to figure out the last day of any given month, hard to read code courtesy of http://jsfiddle.net/TrueBlueAussie/H89X3/22/
+} // end Exposify.prototype.getLastDayOfMonth
+
+
+// Return name in last name, first name order (with comma)
+function getNameFirstLast(name) {
+  var names = name.split(','); // if name string contains a comma, assume they are in last, first order and split them at the comma
+  var newName = names[1].trim() + ' ' + names[0].trim(); // remove leading and trailing whitespace but add a space between them
+  return newName;
+}
+
+
+// Return name in first name, last name order
+function getNameLastFirst(name) {
+  var names = name.split(' '); // if names are in first last order, split them at the space
+  var newName = names.pop() + ', ' + names.join(' '); // insert commas between the names and add a space
+  return newName;
+}
+
+
 /**
  * Get authorization for Drive access from client side code by calling a dummy function, just in case
  * the user needs to authenticate, and then returning the necessary OAuth token.
@@ -696,22 +1101,28 @@ Exposify.prototype.getOAuthToken = function() {
 Exposify.prototype.getSemesterTitle = function(sheet) {
   var semesterTitle = sheet.getRange('A2').getValue(); // the semester, from the gradebook
   return semesterTitle;
-} // Exposify.prototype.getSemesterTitle
+} // end Exposify.prototype.getSemesterTitle
 
 
-function getStudents(sheet) {
+Exposify.prototype.getSemesterYearString = function(semester) {
+  var year = new Date().getFullYear(); // assume any given gradebook is being created for the current year (not sure if that's a good idea, but it seems likely in the vast majority of cases)
+  return semester + ' ' + year; // create a string from the semester and the current year, i.e. 'Fall 2015'
+} // end Exposify.prototype.getSemesterYearString
+
+
+Exposify.prototype.getStudents = function(sheet) {
   var studentRows = sheet.getRange(STUDENT_RANGE).getValues();
   var students = [];
   studentRows.forEach( function(student) {
     if (student[0] !== '') {
-      var studentName = student[0].match(/.+,.+/) ? getNameFirstLast(student[0]) : student[0];
+      var studentName = student[0].match(/.+,.+/) ? getNameFirstLast(student[0]) : student[0]; // rewrite to make this a function of the Student object
       students.push(studentName);
     }
   });
   return students;
-}
+} // end Exposify.prototype.getStudents
 
-
+// shouldn't need this function
 function getStudentsWithIds(sheet) {
   var studentRows = sheet.getRange(STUDENT_ID_RANGE).getValues();
   var students = [];
@@ -720,6 +1131,21 @@ function getStudentsWithIds(sheet) {
   });
   return students;
 }
+
+
+Exposify.prototype.getTuesdayOfThanksgivingWeek = function(year) {
+  var firstDayOfNovember = new Date(year, 10, 1).getDay();
+  var firstThursdayOfNovember = 1; // if first day of November is a Thursday
+  if (firstDayOfNovember < 4) {
+    firstThursdayOfNovember = (5 - firstDayOfNovember); // if it's before Thursday, calculate the date of the next Thursday
+  } else if (firstDayOfNovember > 4) {
+    firstThursdayOfNovember = 7 - (firstDayOfNovember - 5); // if it's after Thursday, calculate the date of the following Thursday
+  }
+  function findThanksgiving(day) {
+    return day + 7 > 30 ? day : findThanksgiving(day + 7); // use recursion to continue adding seven to the memoized day variable until doing so would result in a value greater than 30, thus we have the last Thursday in November
+  }
+  return findThanksgiving(firstThursdayOfNovember) - 2; // the Tuesday of Thanksgiving week is the value of Thanksgiving Day minus 2 days
+} // end Exposify.prototype.getTuesdayOfThanksgivingWeek
 
 
 /**
@@ -802,6 +1228,17 @@ Exposify.prototype.makeAlert = function(alertType, msg) {
 } // end Exposify.prototype.makeAlert
 
 
+Exposify.prototype.setGradeValidations = function(sheet, gradeValidations) {
+  try {
+    gradeValidations.ranges.forEach(function(rangeList, index) {
+      rangeList.forEach(function(range) { sheet.getRange(range).setDataValidation(gradeValidations.validations[index]); }); // set data validations
+    });
+  } catch(e) {
+    this.logError('Exposify.prototype.setGradeValidations', e);
+  }
+} // end Exposify.prototype.setGradeValidations
+
+
 /**
  * Converts a CSV or Google Sheets file into a list of student names and adds them to the
  * gradebook.
@@ -861,6 +1298,9 @@ Exposify.prototype.setupNewGradebook = function(courseInfo) {
 } // end Exposify.prototype.setupNewGradebook
 
 
+// FOLDERSTRUCTURE FUNCTIONS
+
+
 // Create a folder hierarchy with a base folder for the semester, a section folder for shared documents, and one folder for each student for graded papers
 function setupCreateFolderStructure() {
   try {
@@ -873,10 +1313,6 @@ function setupCreateFolderStructure() {
     logError('setupCreateFolderStructure', e);
   }
 }
-
-
-// FOLDERSTRUCTURE FUNCTIONS
-
 
 FolderStructure.prototype.getSemesterFolder = function() {
     var folderIterator = this.rootFolder.getFoldersByName(this.semesterTitle);
@@ -927,7 +1363,6 @@ FolderStructure.prototype.getStudentFolders = function() {
     }
     return null;
   };
-
 
 // Create a course folder hierarchy
 // need to fix checking of Graded folder, because it asks to delete students from other sections
@@ -1238,11 +1673,6 @@ function getCourseFolder(sheet) {
   return folderIter.hasNext() ? folderIter.next() : null;
 }
 
-function test1() {
-  var type = DriveApp.getFileById('1b9fEFuDMXd8c4e1_AvBRY-055Z1uR0pvrOVwTgEm5eE').getMimeType();
-  Logger.log(type);
-}
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Format functions
 
@@ -1322,6 +1752,10 @@ function googleOAuth_(name, scope) {
   return {oAuthServiceName: name, oAuthUseToken: 'always', muteHttpExceptions : true};
 }
 
+function test1() {
+  var type = DriveApp.getFileById('1b9fEFuDMXd8c4e1_AvBRY-055Z1uR0pvrOVwTgEm5eE').getMimeType();
+  Logger.log(type);
+}
 
 /**
  * Check whether an array contains a specified item. Modified code from http://stackoverflow.com/a/237176.
@@ -1336,434 +1770,4 @@ function arrayContains(arr, item) {
     }
   }
   return false;
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// do functions
-
-// Insert student names into spreadsheet
-function doAddStudents(students, sheet) {
-  try {
-    var studentList = [];
-    var fullRange = sheet.getRange(STUDENT_ID_RANGE);
-    fullRange.clearContent();
-    var range = sheet.getRange(4, 1, students.length, 2); // get a range of two columns and a number of rows equal to the number of students to insert
-    students.forEach( function(student) { studentList.push([student.name, student.netid]); } ); // add a row to the temporary studentList array for each student
-    range.setValues(studentList); // set the value of the whole range at once, so I don't call the API more than necessary
-  } catch(e) {
-    logError('doAddStudents', e);
-  }
-}
-
-// Format gradebook
-Exposify.prototype.doFormatSheet = function(newCourse) {
-  var course = newCourse.course;
-  var sheet = newCourse.sheet;
-  try {
-    var section = course.section; // create a series of variables from the Course object passed in, for legibility
-    var semester = course.semester;
-    var courseNumber = course.number;
-    var courseFormat = COURSE_FORMATS[courseNumber];
-    var rows = course.rows;
-    var lastRow = rows.length;
-    var columns = course.columns;
-    var lastColumn = columns.length;
-    var courseTitle = course.nameSection;
-    var columnHeadings = course.columnHeadings;
-    var gradeValidations = course.gradeValidations;
-    var headingRange = sheet.getRange(3, 1, 1, columnHeadings.length); // cell range for gradebook column headings
-    var centerRange = sheet.getRange(3, 3, lastRow, lastColumn); // cell range for central part of gradebook, where grade data is actually entered
-    var topRowsRange = sheet.getRange(1, 1, 3, lastColumn); // rows to keep at the top of the spreadsheet view
-    var titleRange = sheet.getRange('A1:A2'); // course name and semester titles
-    var mergeTitleRange = sheet.getRange('A1:B2'); // we want to merge each of these with the following cell to create a bigger space for the titles
-    var mergeRange = sheet.getRange(1, 3, 2, lastColumn - 2); // merge the empty columns in the top rows so it looks nicer
-    var cornerRange = sheet.getRange('A3:B3'); // where the frozen rows and columns intersect
-    var fullRange = sheet.getRange(1, 1, lastRow, lastColumn); // range of the entire gradebook
-    var maxRange = sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()); // range of the entire visible sheet
-    sheet.clear(); // clear all values and formatting
-    maxRange.clearDataValidations(); // this has to be done separately
-    sheet.setFrozenRows(0); // make sure only the correct rows and columns are frozen when formatting is complete
-    sheet.setFrozenColumns(0);
-    fullRange.breakApart(); // break apart any merged cells
-    for (i = 1; i <= lastRow; i++) { // set row heights
-      sheet.setRowHeight(i, rows[i-1]);
-    }
-    for (i = 1; i <= lastColumn; i++) { // set column widths
-      sheet.setColumnWidth(i, columns[i-1]);
-    }
-    fullRange.setFontFamily([FONT]); // set font
-    fullRange.setFontSize(11); // student names and grades font size
-    titleRange.setFontSizes([[16],[14]]); // titles font size
-    headingRange.setFontSize(9); // headings font size
-    cornerRange.setHorizontalAlignment('center'); // set text alignments
-    cornerRange.setVerticalAlignment('middle');
-    centerRange.setHorizontalAlignment('center');
-    centerRange.setVerticalAlignment('middle');
-    fullRange.setBorder(true, true, true, true, true, true); // set cell borders
-    titleRange.setValues([[courseTitle],[semester]]); // set titles
-    mergeTitleRange.mergeAcross(); // merge title cells
-    mergeRange.mergeAcross(); // merge other cells in the first two rows
-    headingRange.setValues([columnHeadings]); // set column headings
-    headingRange.setWrap(true); // set word wrapping
-    topRowsRange.setBackground(COLOR_SHADED); // set background color of frozen rows
-    sheet.setFrozenRows(3); // freeze first three rows (sorry, magic number)
-    sheet.setFrozenColumns(2); // freeze first two columns (sorry, another magic number)
-    if (gradeValidations !== undefined) {
-      this.setGradeValidations(sheet, gradeValidations); // set data validations for grades
-    }
-    if (courseFormat.hasOwnProperty('finalGradeFormulaRange')) {
-      this.doSetFormulas(sheet, courseNumber); // apply final grade formula to this range
-    }
-    if (course.meetingDays.length !== 0) {
-      this.doFormatSheetAddAttendanceRecord(course, sheet); // add an attendance sheet if the user asked for it
-    }
-    doSetShadedRows(sheet); // set alternating color of student rows
-    sheet.setName(course.numberSection); // name sheet with section number
-  } catch(e) {
-    this.logError('Exposify.prototype.doFormatSheet', e);
-  }
-} // Exposify.prototype.doFormatSheet
-
-
-Exposify.prototype.setGradeValidations = function(sheet, gradeValidations) {
-  try {
-    gradeValidations.ranges.forEach(function(rangeList, index) {
-      rangeList.forEach(function(range) { sheet.getRange(range).setDataValidation(gradeValidations.validations[index]); }); // set data validations
-    });
-  } catch(e) {
-    this.logError('Exposify.prototype.setGradeValidations', e);
-  }
-} // end Exposify.prototype.setGradeValidations
-
-
-// Create attendance sheet to accompany gradebook, if requested
-Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
-  try {
-    var courseData = getCourseData(course); // get an object representing the date the semester begins, which days of the week it meets, and the duration in weeks it meets for
-    var semesterBeginsDate = courseData.semesterBeginsDate;
-    var meetingDays = courseData.meetingDays;
-    var meetingWeeks = courseData.meetingWeeks;
-    var schedule = doMakeSchedule(semesterBeginsDate, meetingDays, meetingWeeks); // calculate a schedule of actual days from this information to insert into the spreadsheet
-    var width = schedule.length; // number of meetings
-    var begin = sheet.getLastColumn() + 1; // place to insert attendance sheet in spreadsheet
-    var end = begin + width - 1; // end of attendance sheet
-    var maxColumns = sheet.getMaxColumns();
-    var columnsToAdd = schedule.length - (maxColumns - (begin - 1)); // extend the length of the spreadsheet, if necessary
-    if (columnsToAdd > 0) {
-      sheet.insertColumnsAfter(maxColumns, columnsToAdd);
-    }
-    var attendanceRange = sheet.getRange(3, begin, 1, width); // headings for dates, one row in height
-    var mergeTitleRange = sheet.getRange(1, begin, 2, width); // merge top rows to look nicer
-    var shadedRange = sheet.getRange(1, begin, 3, width); // we need to add alternate row shading for the attendance sheet, too
-    var lastRow = course.rows.length;
-    var borderRange = sheet.getRange(1, begin, lastRow, width); // and add borders
-    for (i = begin; i <= end; i++) { // set column widths
-      sheet.setColumnWidth(i, ATTENDANCE_SHEET_COLUMN_WIDTH);
-    }
-    attendanceRange.setFontFamily([FONT]); // set font
-    attendanceRange.setFontSize(9); // set font size
-    attendanceRange.setHorizontalAlignment('left'); // set text alignments
-    attendanceRange.setVerticalAlignment('middle');
-    borderRange.setBorder(true, true, true, true, true, true); // set cell borders
-    attendanceRange.setValues([schedule]); // set titles, this call does the important work
-    mergeTitleRange.merge(); // merge title cells
-    shadedRange.setBackground(COLOR_SHADED); // set background color of top rows
-  } catch(e) {
-    this.logError('Exposify.prototype.doFormatSheetAddAttendanceRecord', e);
-  }
-} // end Exposify.prototype.doFormatSheetAddAttendanceRecord
-
-
-Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
-  try {
-    var courseFormat = COURSE_FORMATS[courseNumber];
-    var calcRange = sheet.getRange(courseFormat.finalGradeFormulaRange);
-    var formula = courseFormat.finalGradeFormula;
-    var formulas = [];
-    for (i = 4; i < 26; i++) { // 22 students maximum
-      formulas.push([formula.replace('$', i, 'g')]); // substitle '$' wildcard with the appropriate row number for each cell to which we are applying the final grade formula
-    }
-    calcRange.setFormulas(formulas);
-  } catch(e) {
-    this.logError('Exposify.prototype.doSetFormulas', e);
-  }
-} // end Exposify.prototype.doFormatSheetSpecialRules
-
-
-Exposify.prototype.doMakeGradeValidations = function(courseNumber) {
-  try {
-    var gradeValidations = new GradeValidationSet();
-    var courseFormats = COURSE_FORMATS[courseNumber];
-    if (courseFormats.hasOwnProperty('gradeValidations')) {
-      var gradeValidationInfo = courseFormats.gradeValidations.getGradeValidations();
-      var nonNumeric = gradeValidationInfo.nonNumeric;
-      nonNumeric.forEach(function(validationSet) {
-        var newDataValidation = SpreadsheetApp.newDataValidation()
-        .requireValueInList(validationSet.requiredValues, (validationSet.requiredValues.length > 1 ? true : false))
-        .setAllowInvalid(false)
-        .setHelpText(validationSet.helpText)
-        .build();
-        gradeValidations.validations.push(newDataValidation);
-        gradeValidations.ranges.push(validationSet.rangeToValidate);
-      });
-      if (gradeValidationInfo.hasOwnProperty('numeric')) {
-        var numeric = gradeValidationInfo.numeric;
-        numeric.forEach(function(validationSet) {
-          var newDataValidation = SpreadsheetApp.newDataValidation()
-          .requireNumberBetween(0, 100)
-          .setAllowInvalid(false)
-          .setHelpText(validationSet.helpText)
-          .build();
-          gradeValidations.validations.push(newDataValidation);
-          gradeValidations.ranges.push(validationSet.rangeToValidate);
-        });
-      }
-      Logger.log(gradeValidations);
-      return gradeValidations; // neat and tidy package
-    }
-  } catch(e) {
-    this.logError('Exposify.prototype.doMakeGradeValidations', e);
-  }
-} // end Exposify.prototype.doMakeGradeValidations
-
-
-// Calculates a schedule for a course, which is complicated so I don't know if it will always be 100% accurate but probably good enough
-function doMakeSchedule(semesterBeginsDate, meetingDays, meetingWeeks) {
-  try {
-    var day = 1;
-    var month = semesterBeginsDate.getMonth();
-    var year = semesterBeginsDate.getFullYear();
-    var firstDayOfClass = semesterBeginsDate.getDate();
-    var lastDay = getLastDayOfMonth(month, year);
-    var daysToMeet = [];
-    var firstDayOfSpringBreak = getFirstDayOfSpringBreak(year); // get first day of Spring Break, so we don't include dates for that week
-    var tuesdayOfThanksgivingWeek = getTuesdayOfThanksgivingWeek(year); // get Tuesday of Thanksgiving week, so we can take change of day designations into account
-    var alternateDesignationYear = getAlternateDesignationYearStatus(year); // except on some years, when 9/1 is a Tuesday, the designation days are different
-    for (day = firstDayOfClass, week = 1; day < lastDay + 1 && week < meetingWeeks + 1; day++) { // check every single day in the semester to see if it belongs in the course schedule
-      if (month === 2 && day === firstDayOfSpringBreak) { // if the day we're checking is the first day of Spring Break, just skip 9 days
-        day += 9;
-        week += 2;
-      }
-      var dayToCheck = (new Date(year, month, day)).getDay();
-      if (month === 8 && day === 8 && alternateDesignationYear) { // pretend today is Monday, September 1 if we're checking September 8 and September 1 was a Tuesday
-        dayToCheck = 1;
-      }
-      if (month === 10 && (day >= tuesdayOfThanksgivingWeek && day <= tuesdayOfThanksgivingWeek + 5)) { // changes of designation during Thanksgiving week
-        if (day === tuesdayOfThanksgivingWeek) {
-          dayToCheck = (alternateDesignationYear ? 2 : 4); // Tuesday becomes Thursday, unless it's one of those weird years (2015 and 2020) when it stays a Tuesday
-        } else if (day === (tuesdayOfThanksgivingWeek + 1)) { // Wednesday becomes Friday
-          dayToCheck = 5;
-        } else {
-          day += 4; // skip the rest
-          dayToCheck = 1; // pretend it's Monday
-          week++;
-          if (day > 30) { // make sure we didn't go over 30 days for November by skipping 4 days at the end of the month
-            day = day - 30;
-            month++;
-            lastDay = getLastDayOfMonth(month, year);
-          }
-        }
-      }
-      if (meetingDays.some( function(meetingDay) { return dayToCheck === DAYS[meetingDay]; })) { // if the day we're checking is one of the days the class meets, add it to a running list of meeting days
-        daysToMeet.push((month + 1) + '/\n' + day); // create the actual text that will appear in the spreadsheet for each meeting day, i.e. 9/1 with a carriage return after the forward slash to look nice and avoid automatic date formatting
-      }
-      if (day === lastDay) { // if we're at the last day of the month, reset the day counter to 0, increase the month counter, and calculate the last day of the new month
-        day = 0;
-        month++;
-        lastDay = getLastDayOfMonth(month, year);
-      }
-      if (dayToCheck === 6) { // if the day we're checking is Saturday, increment the week counter
-        week++;
-      }
-    }
-    return daysToMeet; // an array of text dates ready to be inserted directly into the spreadsheet
-  } catch(e) {
-    logError('doMakeSchedule', e);
-  }
-}
-
-// Extracts student names and ids from the 'participant data file compatible with Microsoft Excel' downloadable from the Site Info page of a Sakai course site.
-// Will only work if that file has been unmodified. This function works whether or not the file has been converted from csv (comma separated values) format into Google Sheets format.
-function doParseSpreadsheet(id, mimeType) {
-  try {
-    var students = [];
-    if (mimeType === 'application/vnd.google-apps.spreadsheet') {
-      var file = SpreadsheetApp.openById(id); // open file to retrieve data
-      var page = file.getSheets()[0];
-      var range = page.getRange('A2:F24').getValues();
-      for (row = 0; row < 23; row++) {
-        if (range[row][0] && range[row][4] === 'Student') {
-          students.push(new Student(range[row][0], range[row][1])); // create list of Student objects from spreadsheet
-        }
-      }
-    } else if (mimeType === 'text/csv') {
-      var file = DriveApp.getFileById(id);
-      var data = file.getAs('text/csv').getDataAsString(); // convert file data into a string (can't open csv files in Google Drive)
-      var csv = Utilities.parseCsv(data);
-      var length = csv.length;
-      for (row = 1; row < length; row++) {
-        if (csv[row][0] && csv[row][4] === 'Student') {
-          students.push(new Student(csv[row][0], csv[row][1])); // create list of Student objects from csv file
-        }
-      }
-    }
-    return students;
-  } catch(e) {
-    logError('doParseSpreadsheet', e);
-  }
-}
-
-// Sets a background color on alternating rows to make them easier to read.
-function doSetShadedRows(sheet) {
-  try {
-    var sheetLastRow = sheet.getLastRow();
-    var lastRow = (sheetLastRow === 3 ? 25 : sheetLastRow); // if the sheet doesn't have any students listed in it, process 25 rows, otherwise process the rows that contain student data
-    var lastColumn = sheet.getLastColumn();
-    var rows = lastRow - 3;
-    var shadedRange = sheet.getRange(4, 1, rows, lastColumn);
-    var blankColor = COLOR_BLANK;
-    var shadedColor = COLOR_SHADED;
-    var blankRow = [];
-    var shadedRow = [];
-    var newRows = [];
-    for (i = 0; i < lastColumn; i++) { // generate array of alternating colors of the correct length
-      blankRow.push(blankColor);
-      shadedRow.push(shadedColor);
-    }
-    for (i = 4; i <= lastRow; i++) {
-      i % 2 === 0 ? newRows.push(blankRow) : newRows.push(shadedRow); // generate array of alternating shaded and blank rows so I only have to call setBackgrounds once
-    }
-    shadedRange.setBackgrounds(newRows); // set row backgrounds
-  } catch(e) {
-    logError('doSetShadedRows', e);
-  }
-}
-
-// Switch student name order from last name first to first name last or vice versa
-function doSwitchStudentNames(sheet) {
-  try {
-    var range = sheet.getRange(STUDENT_ID_RANGE).getValues();
-    var students = [];
-    for (i = 0; i < 22; i++) {
-      if (range[i][0] !== '' && range[i][1] !== '') { // only check rows that actually contain student data
-        students.push(new Student(range[i][0], range[i][1]));
-      }
-    }
-    for (i = 0; i < students.length; i++) {
-      var name = students[i].name;
-      if (name.match(/.+,.+/)) { // match student names against a regular expression pattern to determine whether or not the name strings contain commas... I hope there aren't any people whose names actually contain commas
-        students[i].name = getNameFirstLast(name);
-      } else {
-        students[i].name = getNameLastFirst(name);
-      }
-    }
-    doAddStudents(students, sheet); // repopulate the sheet with the student names
-    sheet.sort(1);
-    doSetShadedRows(sheet); // because the sort will mess them up
-  } catch(e) {
-    logError('doSwitchStudentNames', e);
-  }
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// get value functions
-
-function getAlternateDesignationYearStatus(year) { // change in designation days are different if September 1 is a Tuesday (see http://senate.rutgers.edu/RLBAckS1003AAcademicCalendarPart2.pdf)
-  var firstDayOfSeptember = (new Date(year, 8, 1)).getDay();
-  return firstDayOfSeptember === 2 ? true : false; // return true if the first day of September of the year being checked is a Tuesday and false otherwise
-}
-
-// Parse a Course object into a new data object for use in creating a schedule for an attendance sheet, mostly by calculating the date the course begins, a complicated enough operation that I refactored it into a separate function
-function getCourseData(course) {
-  try {
-    var semester = course.semester; // the semester string, i.e. 'Fall 2015'
-    var semesterYear = semester.match(/\d+/)[0]; // the semester string with the season removed, i.e. '2015'
-    var semesterSeason = semester.match(/\D+/)[0].trim(); // the semester string with the year removed, i.e. 'Fall'
-    var meetingDays = course.meetingDays;
-    var meetingWeeks = 15; // spring and fall courses meet for 15 weeks
-    switch (semesterSeason) {
-      case 'Spring':
-        var semesterMonth = 0; // January = 0
-        var semesterMonthFirstDay = (new Date(semesterYear, semesterMonth, 1)).getDay();
-        var semesterBeginsDay = 15; // if the first day of January is a Tuesday, the semester begins on January 15th
-        if (semesterMonthFirstDay > 2) {
-            semesterBeginsDay = (7 - (semesterMonthFirstDay - 3)) + 14; // if the first day of January is after Tuesday, add 14 days to the number of days between January 1st and the following Tuesday
-        } else if (semesterMonthFirstDay < 2) {
-            semesterBeginsDay = (2 - semesterMonthFirstDay) + 15; // if the first day of January is before Tuesday, add 15 days to the number of days between January 1st and the next Tuesday
-        }
-        break;
-      case 'Fall':
-        var semesterMonth = 8; // September = 8
-        var semesterMonthFirstDay = (new Date(semesterYear, semesterMonth, 1)).getDay();
-        var semesterBeginsDay = 1; // if the first day of September is a Tuesday, the semester begins on September 1st
-        if (semesterBeginsDay > 2) {
-          semesterBeginsDay = (7 - (semesterMonthFirstDay - 3)); // if the first day of September is after Tuesday, calculate the date of the following Tuesday
-        } else if (semesterMonthFirstDay < 2) {
-            semesterBeginsDay = (2 - semesterMonthFirstDay) + 1; // if the first day of September is before Tuesday, calculate the date of the next Tuesday
-        }
-        break;
-      case 'Summer':
-        var summerSection = course.section.match(/\D/)[0]; // use a regular expression to determine the section of the course, A–V
-        var session = SUMMER_SESSIONS[summerSection];
-        var semesterMonth = session[1]; // check which month the course starts in
-        var semesterMonthFirstDay = (new Date(semesterYear, semesterMonth, 1)).getDay();
-        var semesterBeginsDay = session[2]; // check which day of the week the course starts
-        meetingWeeks = session[3]; // check the duration, in weeks, of the course
-        if (semesterMonthFirstDay > session[0]) {
-            semesterBeginsDay = (7 - (semesterMonthFirstDay - (session[0] + 1)) + (semesterBeginsDay - 1)); // calculate the first day of the course (works assuming there is predictability to when summer courses begin)
-        } else if (semesterMonthFirstDay < session[0]) {
-            semesterBeginsDay = (session[0] - semesterMonthFirstDay) + semesterBeginsDay;
-        }
-        break;
-    }
-    var semesterBeginsDate = new Date(semesterYear, semesterMonth, semesterBeginsDay);
-    return {semesterBeginsDate: semesterBeginsDate,
-            meetingDays: meetingDays,
-            meetingWeeks: meetingWeeks};
-  } catch(e) {
-    logError('getCourseData', e);
-  }
-}
-
-function getFirstDayOfSpringBreak(year) {
-  var firstDayOfMarch = new Date(year, 3, 1).getDay();
-  return firstDayOfMarch + (6 - firstDayOfMarch) + 7; // Spring Break starts the second Saturday of March, so find out the first day of March, add days to get to Saturday, and add 7 to that
-}
-
- function getLastDayOfMonth(month, year) {
-   month += 1;
-   return month === 2 ? year & 3 || !(year % 25) && year & 15 ? 28 : 29 : 30 + (month + (month >> 3 ) & 1); // do some bit twiddling to figure out the last day of any given month, hard to read code courtesy of http://jsfiddle.net/TrueBlueAussie/H89X3/22/
-}
-
-// Return name in last name, first name order (with comma)
-function getNameFirstLast(name) {
-  var names = name.split(','); // if name string contains a comma, assume they are in last, first order and split them at the comma
-  var newName = names[1].trim() + ' ' + names[0].trim(); // remove leading and trailing whitespace but add a space between them
-  return newName;
-}
-
-// Return name in first name, last name order
-function getNameLastFirst(name) {
-  var names = name.split(' '); // if names are in first last order, split them at the space
-  var newName = names.pop() + ', ' + names.join(' '); // insert commas between the names and add a space
-  return newName;
-}
-
-Exposify.prototype.getSemesterYearString = function(semester) {
-  var year = new Date().getFullYear(); // assume any given gradebook is being created for the current year (not sure if that's a good idea, but it seems likely in the vast majority of cases)
-  return semester + ' ' + year; // create a string from the semester and the current year, i.e. 'Fall 2015'
-}
-
-function getTuesdayOfThanksgivingWeek(year) {
-  var firstDayOfNovember = new Date(year, 10, 1).getDay();
-  var firstThursdayOfNovember = 1; // if first day of November is a Thursday
-  if (firstDayOfNovember < 4) {
-    firstThursdayOfNovember = (5 - firstDayOfNovember); // if it's before Thursday, calculate the date of the next Thursday
-  } else if (firstDayOfNovember > 4) {
-    firstThursdayOfNovember = 7 - (firstDayOfNovember - 5); // if it's after Thursday, calculate the date of the following Thursday
-  }
-  function findThanksgiving(day) {
-    return day + 7 > 30 ? day : findThanksgiving(day + 7); // use recursion to continue adding seven to the memoized day variable until doing so would result in a value greater than 30, thus we have the last Thursday in November
-  }
-  return findThanksgiving(firstThursdayOfNovember) - 2; // the Tuesday of Thanksgiving week is the value of Thanksgiving Day minus 2 days
 }
