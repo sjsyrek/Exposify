@@ -40,6 +40,7 @@
 //TODO: automatically create templates for Docs
 //TODO: automatically produce warning rosters and final gradebooks
 //TODO: autotmatically add students to Contacts
+//TODO: make error messages more informative
 
 
 /**
@@ -534,84 +535,6 @@ function getOAuthToken() { return expos.getOAuthToken(); }
 
 
 /**
- * Get authorization for Drive access from client side code by calling a dummy function, just in case
- * the user needs to authenticate, and then returning the necessary OAuth token.
- * @return {string}
- */
-Exposify.prototype.getOAuthToken = function() {
-  DriveApp.getRootFolder();
-  var token = ScriptApp.getOAuthToken();
-  var key = this.getDeveloperKey();
-  return {token: token, key: key};
-} // end Exposify.prototype.getOAuthToken
-
-
-/**
- * Get the API key for this script for use in client side HTML. The key is stored as a script property,
- * because we don't want end users to be able to see it.
- * @return {string}
- */
-Exposify.prototype.getDeveloperKey = function() {
-  var key = PropertiesService.getScriptProperties().getProperty('DEVELOPER_KEY');
-  return key;
-} // end Exposify.prototype.getDeveloperKey
-
-
-/**
- * Get the Spreadsheet object that represents the spreadsheet to which Exposify is attached.
- * @return  {Spreadsheet}
- */
-Exposify.prototype.getActiveSpreadsheet = function() {
-  return this.getSpreadsheet();
-}; // end Exposify.prototype.getActiveSpreadsheet
-
-
-/**
- * Get the Sheet object that represents the sheet the user is currently working with.
- * @return  {Sheet}
- */
-Exposify.prototype.getActiveSheet = function() {
-  return this.getSpreadsheet().getActiveSheet();
-}; // end Exposify.prototype.getActiveSheet
-
-
-Exposify.prototype.getCourseTitle = function(sheet) {
-  var title = sheet.getRange('A1').getValue(); // the name of the course, from the gradebook
-  var courseTitle = title.replace(/(\s\d+)?:/, ' '); // string manipulation to get a folder name friendly version of the course name and section code
-  return courseTitle;
-} // Exposify.prototype.getCourseTitle
-
-
-Exposify.prototype.getSemesterTitle = function(sheet) {
-  var semesterTitle = sheet.getRange('A2').getValue(); // the semester, from the gradebook
-  return semesterTitle;
-} // Exposify.prototype.getSemesterTitle
-
-
-function getStudents(sheet) {
-  var studentRows = sheet.getRange(STUDENT_RANGE).getValues();
-  var students = [];
-  studentRows.forEach( function(student) {
-    if (student[0] !== '') {
-      var studentName = student[0].match(/.+,.+/) ? getNameFirstLast(student[0]) : student[0];
-      students.push(studentName);
-    }
-  });
-  return students;
-}
-
-
-function getStudentsWithIds(sheet) {
-  var studentRows = sheet.getRange(STUDENT_ID_RANGE).getValues();
-  var students = [];
-  studentRows.forEach( function(row) {
-    students.push(new Student(row[0], row[1]));
-  });
-  return students;
-}
-
-
-/**
  * This function checks that an incoming request to make an alert has the correct parameters and raises an
  * exception if it does not. The parameter is an object with two fields, one containing the type of alert
  * and one containing the message to be displayed to the user. The available alert types are OK, OK_CANCEL,
@@ -635,33 +558,22 @@ Exposify.prototype.alert = function(confirmation) {
 
 
 /**
- * Creates an alert dialog box to be displayed to the user. The alert is comprised of an alert type, which should be
- * OK, OK_CANCEL, or YES_NO, and a message to print in the dialog box. The alert types are constant values. This
- * function returns aanother function that can be executed to display the dialog box.
- * @param  {alertType: string, msg: string}
- * @return  {Function}
+ * Create a dialog box to display to the user using information stored in an object literal.
+ * The html field of the argument object should be an HTML file.
+ * @param  {{title: string, html: string, width: number, height: number}}
+ * @return  {HtmlOutput}
  */
-Exposify.prototype.makeAlert = function(alertType, msg) {
+Exposify.prototype.createHtmlDialog = function(dialog) {
   try {
-    var ui = this.getUi();
-    var alertUi = this.alertUi;
-    var ok = alertUi.ok;
-    var yes = alertUi.yes;
-    var okCancel = alertUi.okCancel;
-    var yesNo = alertUi.yesNo;
-    var alerts = { // Map alert functions to different alert types
-      ok: function() { return ui.alert(msg); },
-      okCancel: function() { return (ui.alert(msg, okCancel)) === ok ? true : false; },
-      yesNo: function() { return (ui.alert(msg, yesNo)) === yes ? true : false; },
-      prompt: function() {
-        var response = ui.prompt(msg, okCancel);
-        return response.getSelectedButton() === ok ? response.getResponseText() : false;
-      }
-    };
-    var dialog = alerts[alertType]; // Create a function using the closures stored in the {@code alerts} variable.
-    return dialog; // Return the function without executing it.
-  } catch(e) { this.logError('Exposify.prototype.makeAlert', e); }
-} // end Exposify.prototype.makeAlert
+    var stylesheet = this.getHtmlOutputFromFile(STYLESHEET);
+    var body = this.getHtmlOutputFromFile(dialog.html).getContent(); // Sanitize the HTML file
+    var page = stylesheet.append(body).getContent(); // Combine the style sheet with the body
+    var htmlDialog = this.getHtmlOutput(page)
+      .setWidth(dialog.width)
+      .setHeight(dialog.height);
+    return htmlDialog;
+  } catch(e) { this.logError('Exposify.prototype.createHtmlDialog', e); }
+} // end Exposify.prototype.createHtmlDialog
 
 
 /**
@@ -691,22 +603,39 @@ Exposify.prototype.executeMenuCommand = function(params) {
 
 
 /**
- * Create a dialog box to display to the user using information stored in an object literal.
- * The html field of the argument object should be an HTML file.
- * @param  {{title: string, html: string, width: number, height: number}}
- * @return  {HtmlOutput}
+ * Get the Sheet object that represents the sheet the user is currently working with.
+ * @return  {Sheet}
  */
-Exposify.prototype.createHtmlDialog = function(dialog) {
-  try {
-    var stylesheet = this.getHtmlOutputFromFile(STYLESHEET);
-    var body = this.getHtmlOutputFromFile(dialog.html).getContent(); // Sanitize the HTML file
-    var page = stylesheet.append(body).getContent(); // Combine the style sheet with the body
-    var htmlDialog = this.getHtmlOutput(page)
-      .setWidth(dialog.width)
-      .setHeight(dialog.height);
-    return htmlDialog;
-  } catch(e) { this.logError('Exposify.prototype.createHtmlDialog', e); }
-} // end Exposify.prototype.createHtmlDialog
+Exposify.prototype.getActiveSheet = function() {
+  return this.getSpreadsheet().getActiveSheet();
+}; // end Exposify.prototype.getActiveSheet
+
+
+/**
+ * Get the Spreadsheet object that represents the spreadsheet to which Exposify is attached.
+ * @return  {Spreadsheet}
+ */
+Exposify.prototype.getActiveSpreadsheet = function() {
+  return this.getSpreadsheet();
+}; // end Exposify.prototype.getActiveSpreadsheet
+
+
+Exposify.prototype.getCourseTitle = function(sheet) {
+  var title = sheet.getRange('A1').getValue(); // the name of the course, from the gradebook
+  var courseTitle = title.replace(/(\s\d+)?:/, ' '); // string manipulation to get a folder name friendly version of the course name and section code
+  return courseTitle;
+} // Exposify.prototype.getCourseTitle
+
+
+/**
+ * Get the API key for this script for use in client side HTML. The key is stored as a script property,
+ * because we don't want end users to be able to see it.
+ * @return {string}
+ */
+Exposify.prototype.getDeveloperKey = function() {
+  var key = PropertiesService.getScriptProperties().getProperty('DEVELOPER_KEY');
+  return key;
+} // end Exposify.prototype.getDeveloperKey
 
 
 /**
@@ -741,28 +670,125 @@ Exposify.prototype.getHtmlOutputFromFile = function(file) {
 
 
 /**
- * Converts user input, collected from a dialog box, into a newly formatted gradebook.
- * @param  {{course: string, section: string, semester: string, meetingDays: array}}
+ * Get authorization for Drive access from client side code by calling a dummy function, just in case
+ * the user needs to authenticate, and then returning the necessary OAuth token.
+ * @return {string}
  */
-Exposify.prototype.setupNewGradebook = function(courseInfo) {
-  var spreadsheet = this.getActiveSpreadsheet();
-  var sheet = this.getActiveSheet();
-  var newName = courseInfo.course === OTHER_COURSE_NUMBER ? courseInfo.section : courseInfo.course + ':' + courseInfo.section; // only show the course number if it's real
-  var exists = spreadsheet.getSheetByName(newName);
-  if (exists !== null && sheet.getName() === newName) {
-    var msg = ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS.replace('$', newName);
-    this.alert({msg: msg})(); // avoid creating a new sheet with the same name as an existing sheet
-    return;
+Exposify.prototype.getOAuthToken = function() {
+  DriveApp.getRootFolder();
+  var token = ScriptApp.getOAuthToken();
+  var key = this.getDeveloperKey();
+  return {token: token, key: key};
+} // end Exposify.prototype.getOAuthToken
+
+
+Exposify.prototype.getSemesterTitle = function(sheet) {
+  var semesterTitle = sheet.getRange('A2').getValue(); // the semester, from the gradebook
+  return semesterTitle;
+} // Exposify.prototype.getSemesterTitle
+
+
+function getStudents(sheet) {
+  var studentRows = sheet.getRange(STUDENT_RANGE).getValues();
+  var students = [];
+  studentRows.forEach( function(student) {
+    if (student[0] !== '') {
+      var studentName = student[0].match(/.+,.+/) ? getNameFirstLast(student[0]) : student[0];
+      students.push(studentName);
+    }
+  });
+  return students;
+}
+
+
+function getStudentsWithIds(sheet) {
+  var studentRows = sheet.getRange(STUDENT_ID_RANGE).getValues();
+  var students = [];
+  studentRows.forEach( function(row) {
+    students.push(new Student(row[0], row[1]));
+  });
+  return students;
+}
+
+
+/**
+ * If I catch an error in one of my functions, I want to log it to a spreadsheet on my Google Drive
+ * so I can check into it. This is my primitive form of error tracking, which I presume is better
+ * than nothing. This function requires the name of the calling function and the error message
+ * caught by the exception handling code block. The latter is displayed to the user for reporting
+ * back to me. Error tracking can be turned off by setting the ERROR_TRACKING constant to false.
+ * @param {string, string}
+ */
+Exposify.prototype.logError = function(callingFunction, traceback) {
+  if (ERROR_TRACKING === true) {
+    var spreadsheet = this.getActiveSpreadsheet();
+    var logFileId = PropertiesService.getScriptProperties().getProperty('LOG_FILE_ID');
+    var logs = SpreadsheetApp.openById(logFileId);
+    var errorLogSheet = logs.getSheetByName(ERROR_TRACKING_SHEET_NAME);
+    var date = new Date();
+    var timestamp = date.toDateString() + ' ' + date.toTimeString();
+    var email = spreadsheet.getOwner().getEmail();
+    var id = spreadsheet.getId();
+    var info = [timestamp, email, id, callingFunction, traceback];
+    var pasteRange = errorLogSheet.getRange((errorLogSheet.getLastRow() + 1), 1, 1, 5);
+    pasteRange.setValues([info]);
   }
-  var newCourse = new Course(courseInfo); // create new Course object with information collected from the user by the dialog box
+  var msg = 'You can tell Steve you saw this error message, and maybe he can fix it:\n(' + errorLogSheet.getLastRow() + ') ' + traceback;
+  this.alert({msg: msg})();
+} // end Exposify.prototype.logError
+
+
+/**
+ * This function records the email addresses of people who install Exposify and the
+ * spreadsheet id numbers of the documents to which it is attached. This is intended
+ * for communication and updating purposes only. It can be turned off by setting the
+ * INSTALL_TRACKING constant to false.
+ */
+Exposify.prototype.logInstall = function() {
+  if (INSTALL_TRACKING === true) {
+    var spreadsheet = this.getActiveSpreadsheet();
+    var logFileId = PropertiesService.getScriptProperties().getProperty('LOG_FILE_ID');
+    var logs = SpreadsheetApp.openById(logFileId);
+    var installLogSheet = logs.getSheetByName(INSTALL_TRACKING_SHEET_NAME);
+    var date = new Date();
+    var timestamp = date.toDateString() + ' ' + date.toTimeString();
+    var email = spreadsheet.getOwner().getEmail();
+    var id = spreadsheet.getId();
+    var info = [timestamp, email, id];
+    var pasteRange = installLogSheet.getRange((installLogSheet.getLastRow() + 1), 1, 1, 3);
+    pasteRange.setValues([info]);
+  }
+} // end Exposify.prototype.logInstall
+
+
+/**
+ * Creates an alert dialog box to be displayed to the user. The alert is comprised of an alert type, which should be
+ * OK, OK_CANCEL, or YES_NO, and a message to print in the dialog box. The alert types are constant values. This
+ * function returns aanother function that can be executed to display the dialog box.
+ * @param  {alertType: string, msg: string}
+ * @return  {Function}
+ */
+Exposify.prototype.makeAlert = function(alertType, msg) {
   try {
-    this.doFormatSheet({course: newCourse, sheet: sheet}); // do the actual work, probably in a way that I should further refactor
-    spreadsheet.toast(ALERT_SETUP_NEW_GRADEBOOK_SUCCESS.replace('$', newCourse.nameSection), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
-  } catch(e) {
-    this.alert({msg: ERROR_SETUP_NEW_GRADEBOOK_FORMAT})();
-    this.logError('Exposify.prototype.setupNewGradebook', e);
-  }
-} // end Exposify.prototype.setupNewGradebook
+    var ui = this.getUi();
+    var alertUi = this.alertUi;
+    var ok = alertUi.ok;
+    var yes = alertUi.yes;
+    var okCancel = alertUi.okCancel;
+    var yesNo = alertUi.yesNo;
+    var alerts = { // Map alert functions to different alert types
+      ok: function() { return ui.alert(msg); },
+      okCancel: function() { return (ui.alert(msg, okCancel)) === ok ? true : false; },
+      yesNo: function() { return (ui.alert(msg, yesNo)) === yes ? true : false; },
+      prompt: function() {
+        var response = ui.prompt(msg, okCancel);
+        return response.getSelectedButton() === ok ? response.getResponseText() : false;
+      }
+    };
+    var dialog = alerts[alertType]; // Create a function using the closures stored in the {@code alerts} variable.
+    return dialog; // Return the function without executing it.
+  } catch(e) { this.logError('Exposify.prototype.makeAlert', e); }
+} // end Exposify.prototype.makeAlert
 
 
 /**
@@ -797,6 +823,31 @@ Exposify.prototype.setupAddStudents = function(id) {
     this.logError('setupAddStudentsCallback', e);
   }
 } // end Exposify.prototype.setupAddStudents
+
+
+/**
+ * Converts user input, collected from a dialog box, into a newly formatted gradebook.
+ * @param  {{course: string, section: string, semester: string, meetingDays: array}}
+ */
+Exposify.prototype.setupNewGradebook = function(courseInfo) {
+  var spreadsheet = this.getActiveSpreadsheet();
+  var sheet = this.getActiveSheet();
+  var newName = courseInfo.course === OTHER_COURSE_NUMBER ? courseInfo.section : courseInfo.course + ':' + courseInfo.section; // only show the course number if it's real
+  var exists = spreadsheet.getSheetByName(newName);
+  if (exists !== null && sheet.getName() === newName) {
+    var msg = ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS.replace('$', newName);
+    this.alert({msg: msg})(); // avoid creating a new sheet with the same name as an existing sheet
+    return;
+  }
+  var newCourse = new Course(courseInfo); // create new Course object with information collected from the user by the dialog box
+  try {
+    this.doFormatSheet({course: newCourse, sheet: sheet}); // do the actual work, probably in a way that I should further refactor
+    spreadsheet.toast(ALERT_SETUP_NEW_GRADEBOOK_SUCCESS.replace('$', newCourse.nameSection), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
+  } catch(e) {
+    this.alert({msg: ERROR_SETUP_NEW_GRADEBOOK_FORMAT})();
+    this.logError('Exposify.prototype.setupNewGradebook', e);
+  }
+} // end Exposify.prototype.setupNewGradebook
 
 
 // Create a folder hierarchy with a base folder for the semester, a section folder for shared documents, and one folder for each student for graded papers
@@ -1016,7 +1067,6 @@ function doCreateFolderStructure(sheet) {
       ui.alert(errorAlert());
     }
 }
-
 
 function setupShareFolders() {
   try {
@@ -1705,43 +1755,4 @@ function getTuesdayOfThanksgivingWeek(year) {
     return day + 7 > 30 ? day : findThanksgiving(day + 7); // use recursion to continue adding seven to the memoized day variable until doing so would result in a value greater than 30, thus we have the last Thursday in November
   }
   return findThanksgiving(firstThursdayOfNovember) - 2; // the Tuesday of Thanksgiving week is the value of Thanksgiving Day minus 2 days
-}
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// log functions
-
-// Catch errors and log them in a spreadsheet
-Exposify.prototype.logError = function(callingFunction, traceback) {
-  if (ERROR_TRACKING === true) {
-    var spreadsheet = this.getActiveSpreadsheet();
-    var logFileId = PropertiesService.getScriptProperties().getProperty('LOG_FILE_ID');
-    var logs = SpreadsheetApp.openById(logFileId);
-    var errorLogSheet = logs.getSheetByName(ERROR_TRACKING_SHEET_NAME);
-    var date = new Date();
-    var timestamp = date.toDateString() + ' ' + date.toTimeString();
-    var email = spreadsheet.getOwner().getEmail();
-    var id = spreadsheet.getId();
-    var info = [timestamp, email, id, callingFunction, traceback];
-    var pasteRange = errorLogSheet.getRange((errorLogSheet.getLastRow() + 1), 1, 1, 5);
-    pasteRange.setValues([info]);
-  }
-  var msg = '(' + errorLogSheet.getLastRow() + ') ' + traceback;
-  this.alert({msg: msg})();
-}
-
-// Record installations of Exposify in a spreadsheet
-Exposify.prototype.logInstall = function() {
-  if (INSTALL_TRACKING === true) {
-    var spreadsheet = this.getActiveSpreadsheet();
-    var logFileId = PropertiesService.getScriptProperties().getProperty('LOG_FILE_ID');
-    var logs = SpreadsheetApp.openById(logFileId);
-    var installLogSheet = logs.getSheetByName(INSTALL_TRACKING_SHEET_NAME);
-    var date = new Date();
-    var timestamp = date.toDateString() + ' ' + date.toTimeString();
-    var email = spreadsheet.getOwner().getEmail();
-    var id = spreadsheet.getId();
-    var info = [timestamp, email, id];
-    var pasteRange = installLogSheet.getRange((installLogSheet.getLastRow() + 1), 1, 1, 3);
-    pasteRange.setValues([info]);
-  }
 }
