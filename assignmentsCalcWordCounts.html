@@ -1,0 +1,119 @@
+<!-- assignmentsCalcWordCounts.html
+Modal dialog box for Exposify.gs called from assignmentsCalcWordCounts -->
+
+<style>
+   div {
+     background-color: #fff;
+     margin: 0em 0em 1em 0em;
+     text-align: left;
+     font: 14px normal verdana, helvetica, sans-serif;
+   }
+   p {
+     margin: 0.75em 0em 0.75em 0em;
+     line-height: 1.25em;
+   }
+   .radios {
+     line-height: 1.75em;
+     margin: 0.5em;
+   }
+   .filter_text {
+     line-height: 1.75em;
+   }
+   .title {
+     font-size: 16px;
+   }
+   .warning {
+     color: red;
+   }
+   .filter {
+     font-size: 16px;
+     border: 1px solid #666;
+     color:#000;
+     text-decoration: none;
+     background: #fff;
+     width: 16em;
+     height: 1.25em;
+     padding: 0.25em;
+   }
+   .button {
+     font: inherit;
+     text-align: center;
+     vertical-align: middle;
+     margin-right: 0.25em;
+     margin-bottom: 0.25em;
+     border: 1px solid #666;
+     color:#000;
+     text-decoration: none;
+     background: #ededed;
+     width: 5em;
+     height: 2em;
+   }
+   input[type='radio'] {
+     margin-right: 0.5em;
+   }
+</style>
+
+<div id='main'>
+  <div id='title' class='title'></div>
+  <p class='radios'>
+    <input type='radio' name='students' id='all' value='all' checked='checked'><label for='all'>Get Word Counts for All Students</label><br />
+    <input type='radio' name='students' id='selected' value='selected'><label for='selected'>Get Word Counts for Selected Student</label>
+  </p>
+  <div class='filter_text'>
+    Filter for documents (ex: 'Assignment 1'):
+    <input class='filter' type='text' name='filter' id='filter'>
+  </div>
+  <input class='button' type='button' name='go' id='go' value='Go'>
+  <input class='button' type='button' name='close' id='close' value='Close' onclick='google.script.host.close()'>
+  <div id='inner' class='inner'></div>
+</div>
+<script src='//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>
+    <script>
+      $( document ).ready(function() {
+        $('#main').hide();
+        google.script.run.withSuccessHandler(makeTitle).assignmentsCalcWordCountsCallbackGetTitle();
+        $('#go').click( function() {
+          $('#inner').empty();
+          $('<p id=\'counting\'>Counting...</p>').appendTo('.inner');
+          var students = $('input[name='students']:checked').val();
+          var filter = $('#filter').val();
+          var params = {students: students, filter: filter};
+          google.script.run.withSuccessHandler(showCounts).assignmentsCalcWordCountsCallback(params);
+          }); // end click
+      }); // end ready()
+      function makeTitle(title) {
+        if (title !== $('#title').text()) {
+          var title = '<div id=\'title\' class=\'title\'>' + title + '</div>';
+          $('#title').replaceWith(title);
+        }
+        if (!$('#main').is(':visible')) {
+          $('#main').show();
+        }
+      } // end makeTitle()  
+      function showCounts(counts) {
+        google.script.run.withSuccessHandler(makeTitle).assignmentsCalcWordCountsCallbackGetTitle();
+        $('#counting').remove();
+        if (counts === null || counts === undefined) {
+          var item = '<p>Nothing found.</p>';
+          $(item).appendTo( '.inner' );
+        } else if (counts.length === 0) {
+          var item = '<p>There are no documents that match these criteria.</p>';
+          $(item).appendTo( '.inner' );
+        } else {
+          var i = 0;
+          counts.forEach( function(count) {
+            var document = count.document;
+            var words = count.count;
+            var lastUpdated = count.lastUpdated;
+            var item = '<p>' + document + ':<br />' + '<span id=\'' + i + '\'>' + words + ' words</span> (Last Updated: ' + lastUpdated + ')</p>';
+            $(item).appendTo( '.inner' );
+            if (words < 1700) {
+              var id = '#' + i;
+              $(id).addClass('warning');
+            }
+            i++;
+          });
+          $('<p id=\'total\'>Total: ' + counts.length + '</p>').appendTo('.inner');
+        }
+      } // end showCounts()
+</script>

@@ -1,0 +1,100 @@
+<!-- setupNewGradebookDialog.html
+Modal dialog box for Exposify.gs called from setupNewGradebook -->
+
+<div>
+  <div>
+    <form id='section_info'>
+       <div class='labelBlock'>Which course are you teaching?</div>
+         <div class='indent'>
+           <div class='subhead'>
+             <input type='radio' name='course' id='expos' value='101' checked='checked'>
+             <label for='expos'>Expository Writing</label><br>
+           </div>
+            <div class='subhead'>
+             <input type='radio' name='course' id='e&a' value='103'>
+             <label for='expos'>Exposition and Argument</label><br>
+           </div>
+           <div class='subhead'>
+             <input type='radio' name='course' id='research' value='201'>
+             <label for='research'>Research in the Disciplines</label><br>
+           </div>
+           <div class='subhead'>
+             <input type='radio' name='course' id='other' value='0'>
+             <label for='other'>Other</label>
+           </div>
+         </div>
+       <div class='labelBlock'>What is the two-digit section code?</div>
+         <div class='indent'>
+           <input class='section_number' name='section' type='text' id='section' size='3' maxlength='2'>
+           <label class='warning' id='warning'>Please enter a valid section number</label>
+         </div>
+       <div class='labelBlock'>Which semester are you teaching?</div>
+         <div class='indent'>
+           <div class='subhead'>
+             <input class='radio' type='radio' name='semester' id='fall' value='Fall' checked='checked'>
+             <label for='fall'>Fall</label>
+             <input class='radio' type='radio' name='semester' id='spring' value='Spring'>
+             <label for='spring'>Spring</label>
+             <input class='radio' type='radio' name='semester' id='summer' value='Summer'>
+             <label for='summer'>Summer</label>
+           </div>
+         </div>
+       <div>
+         <input class='checkbox' type='checkbox' name='attendance' id='attendance'><label for='attendance'>Include attendance record?</label>
+       </div>
+       <div class='indent' id='attendance_days'>
+         <div class='subhead'><label>Check the days for which you want to track attendance:</label></div>
+         <input class='checkbox' type='checkbox' name='meeting' id='monday' value='Monday'><label for='monday'>Monday</label>
+         <input class='checkbox' type='checkbox' name='meeting' id='tuesday' value='Tuesday'><label for='tuesday'>Tuesday</label>
+         <input class='checkbox' type='checkbox' name='meeting' id='wednesday' value='Wednesday'><label for='wednesday'>Wednesday</label>
+         <input class='checkbox' type='checkbox' name='meeting' id='thursday' value='Thursday'><label for='thursday'>Thursday</label>
+         <input class='checkbox' type='checkbox' name='meeting' id='friday' value='Friday'><label for='friday'>Friday</label>
+       </div>
+       <div>
+         <input class='button' type='submit' name='submit' id='submit' value='OK'>
+         <input class='button' type='button' name='cancel' id='cancel' value='Cancel' onclick='google.script.host.close()'>
+       </div>
+    </form>      
+  </div>
+</div>
+<script src='https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js'>
+// This kept failing until I checked the console and saw that this now has to be an https request (not documented)
+</script>
+<script>
+  $( document ).ready(function() {
+    $('#warning').hide();
+    $('#attendance_days input').prop('disabled', true);
+    $('#attendance_days label').css('color','#BBB');
+    $('#attendance').click(function() { // toggle attendance days checkboxes
+      if ($(this).prop('checked')) {
+        $('#attendance_days input').prop('disabled', false);
+        $('#attendance_days label').css('color','');
+      } else {
+        $('#attendance_days input').prop('disabled', true);
+        $('#attendance_days label').css('color','#BBB');
+      }
+    });
+    $('#section_info').submit(function() {
+      var course = $('input[name="course"]:checked').val();
+      var section = $('#section').val();
+      var semester = $('input[name="semester"]:checked').val();
+      var meetingDays = [];
+      if(section.length !== 2) { // validates section code, must be exactly two characters in length, but doesn't do any other checking
+        $('#warning').show();
+        return false;
+      }
+      if ($('#attendance').prop('checked')) { // check whether user wanted to add an attendance sheet
+        var meetingDays = $('input[name="meeting"]:checked').map(function() {return this.value;}).get();
+      }
+      var CourseInfo = function(course, section, semester, meetingDays) {
+        this.course = course;
+        this.section = section.toUpperCase();
+        this.semester = semester;
+        this.meetingDays = meetingDays; // empty if user doesn't choose to add an attendance sheet
+      };
+      var courseInfo = new CourseInfo(course, section, semester, meetingDays);
+      google.script.run.setupNewGradebookCallback(courseInfo); // return information to server script
+      google.script.host.close(); // close dialog box
+    }); // end submit()
+  }); // end ready()
+</script>
