@@ -654,7 +654,7 @@ Exposify.prototype.createHtmlDialog = function(dialog) {
  * @param {Array} students - A list of Student objects containing the data to add to the spreadsheet.
  * @param {Sheet} sheet - A Google Apps Sheet object, the sheet to which names will be added.
  */
-Exposify.prototype.doAddStudents(students, sheet) {
+Exposify.prototype.doAddStudents = function (students, sheet) {
   try {
     var studentList = [];
     var fullRange = sheet.getRange(4, 1, MAX_STUDENTS, 2);
@@ -939,7 +939,7 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
  * Make the gradebook easier to read by setting alternating shaded and unshaded rows.
  * @param {Sheet} sheet - The Google Apps Sheet object with the gradebook to modify.
  */
- Exposify.prototype.doSetShadedRows(sheet) {
+ Exposify.prototype.doSetShadedRows = function (sheet) {
   try {
     var lastRow = MAX_STUDENTS + 3; // maximum number of students plus three to account for title rows
     var lastColumn = sheet.getLastColumn();
@@ -966,7 +966,7 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
  * Switch student name order from last name first to first name last or vice versa.
  * @param {Sheet} sheet - The Google Apps Sheet object with the gradebook to modify.
  */
-Exposify.prototype.doSwitchStudentNames(sheet) {
+Exposify.prototype.doSwitchStudentNames = function (sheet) {
   try {
     var students = this.getStudents(sheet);
     for (i = 0; i < students.length; i += 1) {
@@ -1254,7 +1254,7 @@ Exposify.prototype.getSemesterYearString = function(semester) {
  * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve student data.
  * @return {Array} students - A list of Student objects containing student names and email addresses.
  */
-Exposify.prototype.getStudents(sheet) {
+Exposify.prototype.getStudents = function(sheet) {
   try {
     var studentData = sheet.getRange(4, 1, MAX_STUDENTS, 2).getValues();
     var students = [];
@@ -1876,12 +1876,6 @@ function formatSetShadedRows() {
     logError('setShadedRows', e);
     }
 }
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Help
-
-// Brings up the help document in the sidebar. The width of the sidebar is fixed at 300 px. It can't be changed.
-
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
