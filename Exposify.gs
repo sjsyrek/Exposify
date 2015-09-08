@@ -77,8 +77,6 @@ var EMAIL_DOMAIN = '@scarletmail.rutgers.edu'; // default email domain for stude
 var STYLESHEET = 'Stylesheet.html'; // can't include a css stylesheet, so we put styles here and concatenate the html pages later
 var TIMEZONE = 'America/New_York'; // default timezone
 var HELP_HTML = 'Exposify_help.html'; // the help file
-var STUDENT_RANGE = 'A4:A25'; // where student names are stored on the spreadsheet, best not to change
-var STUDENT_ID_RANGE = 'A4:B25'; // student names plus ids, also don't change this
 var MAX_STUDENTS = 22; // maximum number of students in any course (not a good idea to change this)
 
 
@@ -641,14 +639,14 @@ Exposify.prototype.createHtmlDialog = function(dialog) {
 
 /**
  * Insert student names into the spreadsheet.
- * @param  {Array} students - A list of students to add to the spreadsheet.
+ * @param  {Array} students - A list of Student objects containing the data to add to the spreadsheet.
  * @param  {Sheet} sheet - A Google Apps Sheet object, the sheet to which names will be added.
  */
 Exposify.prototype.doAddStudents(students, sheet) {
   try {
     var studentList = [];
-    var fullRange = sheet.getRange(STUDENT_ID_RANGE);
-    fullRange.clearContent();
+    var fullRange = sheet.getRange(4, 1, MAX_STUDENTS, 2);
+    fullRange.clearContent(); // erase whatever data is already on the sheet where we put student names
     var range = sheet.getRange(4, 1, students.length, 2); // get a range of two columns and a number of rows equal to the number of students to insert
     students.forEach( function(student) { studentList.push([student.name, student.netid]); } ); // add a row to the temporary studentList array for each student
     range.setValues(studentList); // set the value of the whole range at once, so I don't call the API more than necessary
@@ -969,28 +967,6 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
 
 
 /**
- * Retrieve student data from the gradebook and convert it into an array of Student objects.
- * @param  {Sheet} sheet - The Google Apps Sheet object from which to retrieve student data.
- * @return {Array} students - A list of Student objects containing student names and email addresses.
- */
-Exposify.prototype.getStudents(sheet) {
-  try {
-    var studentData = sheet.getRange(4, 1, MAX_STUDENTS, 2).getValues();
-    var students = [];
-    studentData.forEach(function(student) {
-      if (student[0] !== '') {
-        var name = student[0];
-        var netid = student[1];
-        students.push(new Student(name, netid));
-      }
-    });
-    return students;
-  } catch(e) {
-    this.logError('Exposify.prototype.getStudents', e);
-  }
-} // end Exposify.prototype.getStudents
-
-/**
  * Switch student name order from last name first to first name last or vice versa.
  * @param  {Sheet} sheet - The Google Apps Sheet object with the gradebook to modify.
  */
@@ -1178,7 +1154,7 @@ Exposify.prototype.getLastDayOfMonth = function(month, year) {
 
 
 // Return name in last name, first name order (with comma)
-function getNameFirstLast(name) {
+Exposify.prototype.getNameFirstLast = function(name) {
   var names = name.split(','); // if name string contains a comma, assume they are in last, first order and split them at the comma
   var newName = names[1].trim() + ' ' + names[0].trim(); // remove leading and trailing whitespace but add a space between them
   return newName;
@@ -1186,7 +1162,7 @@ function getNameFirstLast(name) {
 
 
 // Return name in first name, last name order
-function getNameLastFirst(name) {
+Exposify.prototype.getNameLastFirst = function(name) {
   var names = name.split(' '); // if names are in first last order, split them at the space
   var newName = names.pop() + ', ' + names.join(' '); // insert commas between the names and add a space
   return newName;
@@ -1218,27 +1194,43 @@ Exposify.prototype.getSemesterYearString = function(semester) {
 } // end Exposify.prototype.getSemesterYearString
 
 
-Exposify.prototype.getStudents = function(sheet) {
-  var studentRows = sheet.getRange(STUDENT_RANGE).getValues();
-  var students = [];
-  studentRows.forEach( function(student) {
-    if (student[0] !== '') {
-      var studentName = student[0].match(/.+,.+/) ? getNameFirstLast(student[0]) : student[0]; // rewrite to make this a function of the Student object
-      students.push(studentName);
-    }
-  });
-  return students;
+/**
+ * Retrieve student data from the gradebook and convert it into an array of Student objects.
+ * @param  {Sheet} sheet - The Google Apps Sheet object from which to retrieve student data.
+ * @return {Array} students - A list of Student objects containing student names and email addresses.
+ */
+Exposify.prototype.getStudents(sheet) {
+  try {
+    var studentData = sheet.getRange(4, 1, MAX_STUDENTS, 2).getValues();
+    var students = [];
+    studentData.forEach(function(student) {
+      if (student[0] !== '') {
+        var name = student[0];
+        var netid = student[1];
+        students.push(new Student(name, netid));
+      }
+    });
+    return students;
+  } catch(e) {
+    this.logError('Exposify.prototype.getStudents', e);
+  }
 } // end Exposify.prototype.getStudents
 
-// shouldn't need this function
-function getStudentsWithIds(sheet) {
-  var studentRows = sheet.getRange(STUDENT_ID_RANGE).getValues();
-  var students = [];
-  studentRows.forEach( function(row) {
-    students.push(new Student(row[0], row[1]));
+
+/**
+ * Retrieve student names from the gradebook, in first name first order.
+ * @param  {Sheet} sheet - The Google Apps Sheet object from which to retrieve student data.
+ * @return  {Array} studentNames - A list of student names.
+ */
+Exposify.prototype.getStudentNames = function(sheet) {
+  var students = this.getStudents(sheet);
+  var studentNames = [];
+  students.forEach( function(student) {
+    var studentName = student.name.match(/.+,.+/) ? this.getNameFirstLast(student.name) : student.name;
+    studentNames.push(studentName);
   });
-  return students;
-}
+  return studentNames;
+} // end Exposify.prototype.getStudentNames
 
 
 Exposify.prototype.getTuesdayOfThanksgivingWeek = function(year) {
@@ -1484,7 +1476,7 @@ function doCreateFolderStructure(sheet) {
     var courseFolder = folderStructure.getCourseFolder();
     var gradedFolder = folderStructure.getGradedFolder();
     var existingStudentFolders = folderStructure.getStudentFolders();
-    var newStudents = getStudents(sheet);
+    var newStudents = getStudentNames(sheet);
     var createdFolders = [];
     var deletedFolders = [];
     var foldersNotCreated = [];
@@ -1711,14 +1703,14 @@ function assignmentsCalcWordCountsCallback(params) {
 function assignmentsCalcWordCountsCallbackGetTitle() {
   var sheet = activeSheet();
   var courseTitle = getCourseTitle(sheet);
-  var students = getStudents(sheet).length;
+  var students = getStudentNames(sheet).length;
   var title = courseTitle + ' (' + students + ' students)';
   return title;
 }
 
 // alphabetize results?
 function doCalcWordCountsAll(sheet, filter) {
-  var studentList = getStudents(sheet);
+  var studentList = getStudentNames(sheet);
   var regex = '(.*';
   studentList.forEach( function(student, index) {
     regex += (student + (index === studentList.length - 1 && filter === '' ? '.*)' : '.*|.*')); // I am a bad person
