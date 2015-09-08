@@ -53,12 +53,14 @@
 //TODO: autotmatically add students to Contacts
 //TODO: make error messages more informative
 //TODO: make sure error logging is correct format
+//TODO: fix JSDoc param comments
 
 
 /**
- * This is a self-executing anonymous function that creates an interface to the
- * Exposify framework without polluting the global namespace, in the event other
- * scripts are attached to this spreadsheet or Exposify's functionality is extended.
+ * Create an interface to the Exposify framework without polluting the global namespace,
+ * in the event other scripts are attached to this spreadsheet or Exposify's functionality
+ * is extended. I don't know if this is completely necessary, but it seemed like a worthy
+ * practice to follow for programming in JavaScript.
  */
 (function() {
   var expos = new Exposify();
@@ -70,10 +72,10 @@
 
 
 // Settings
-var EMAIL_DOMAIN = '@scarletmail.rutgers.edu';
-var STYLESHEET = 'Stylesheet.html';
-var TIMEZONE = 'America/New_York';
-var HELP_HTML = 'Exposify_help.html';
+var EMAIL_DOMAIN = '@scarletmail.rutgers.edu'; // default email domain for students
+var STYLESHEET = 'Stylesheet.html'; // can't include a css stylesheet, so we put styles here and concatenate the html pages later
+var TIMEZONE = 'America/New_York'; // default timezone
+var HELP_HTML = 'Exposify_help.html'; // the help file
 var STUDENT_RANGE = 'A4:A25'; // where student names are stored on the spreadsheet, best not to change
 var STUDENT_ID_RANGE = 'A4:B25'; // student names plus ids, also don't change this
 
@@ -136,7 +138,12 @@ var ERROR_ASSIGNMENTS_CALC_WORD_COUNTS = 'There is no course folder for this cou
 // Templates
 /* The COURSE_FORMATS object literal contains the basic data used to format Exposify gradebooks,
  * depending on the course selected. Altering these could have unpredictable effects on the application,
- * though new course formats can be added (use the 'O' object, for 'Other' courses, as a model)
+ * though new course formats can be added (use the 'O' object, for 'Other' courses, as a model). The template
+ * is used to format the height of rows, the width of columns, to set the course name and column headings,
+ * and to apply data validations to the sheet in order to enforce the usage of specific grade entries.
+ * There are two types of grade validation: numeric and non-numeric. Numeric validations require values
+ * between 0–100. Non-numeric grades require values supplied by a list of possible grades. There is also
+ * help text that will appear when a user hovers over a cell with a grade validation applied to it.
  */
 var COURSE_FORMATS = {
   '0': {
@@ -181,6 +188,12 @@ var COURSE_FORMATS = {
         helpText: 'Enter I if this assignment is incomplete',
         rangeToValidate: ['E4:E25', 'I4:I25', 'N4:N25', 'R4:R25', 'V4:V25']
       },
+      /**
+							* Package and return grade validation data as an object with one field for the non-numeric
+							* data validations specified for this course. I could probably generalize this.
+							* @return  {Object}
+							* @return  {Array} Object.nonNumeric - The non-numeric grade validations.
+							*/
       getGradeValidations: function() {
         var nonNumeric = [this.paperGrades, this.examGrades, this.finalGrades, this.roughDraftStatus, this.lateFinalStatus, this.incompleteFinalStatus];
         return {nonNumeric: nonNumeric}; // package and return validation data
@@ -222,6 +235,13 @@ var COURSE_FORMATS = {
         helpText: 'Enter A, B+, B, C+, C, NC, F, TF, or TZ',
         rangeToValidate: ['W4:W25']
       },
+      /**
+							* Package and return grade validation data as an object with two fields for both the non-numeric
+							* and numeric data validations specified for this course.
+							* @return  {Object}
+							* @return  {Array} Object.nonNumeric - The non-numeric grade validations.
+							* @return  {Array} Object.numeric - The numeric grade validations.
+							*/
       getGradeValidations: function() {
         var nonNumeric = [this.roughDraftStatus, this.lateFinalStatus, this.incompleteFinalStatus, this.proposalGrade, this.finalGrades];
         var numeric = [this.numericGrades];
@@ -246,6 +266,13 @@ var COURSE_FORMATS = {
         helpText: 'Enter A, B+, B, C+, C, NC, F, TF, or TZ',
         rangeToValidate: ['M4:M25']
       },
+      /**
+							* Package and return grade validation data as an object with two fields for both the non-numeric
+							* and numeric data validations specified for this course.
+							* @return  {Object}
+							* @return  {Array} Object.nonNumeric - The non-numeric grade validations.
+							* @return  {Array} Object.numeric - The numeric grade validations.
+							*/
       getGradeValidations: function() {
         var nonNumeric = [this.finalGrades];
         var numeric = [this.numericGrades];
@@ -258,6 +285,7 @@ var COURSE_FORMATS = {
 };
 
 var OTHER_COURSE_NUMBER = '0'; // dummy course number for when 'Other' is selected from the setupNewGradebook dialog
+
 /* The SUMMER_SESSIONS object literal is a slightly obtuse way of storing information about the slightly obtuse summer session schedule.
  * The order is: day of the week the session starts (0–6), month the session starts (0–12), date counting from 1 on which the session
  * would start if the first day of the month were the same day of the week as the day the session starts, how long the course is in weeks
@@ -280,6 +308,9 @@ var SUMMER_SESSIONS = {
 };
 
 // Dialogs
+/**
+ * These templates are used for the alerts displayed when a user selects a given menu option.
+ */
 var SETUP_NEW_GRADEBOOK = {
   alert: {
     alertType: YES_NO,
@@ -308,6 +339,9 @@ var SETUP_ADD_STUDENTS = {
 };
 
 // Logging
+/**
+ * Toggles whether or not I am tracking errors and installs and the names of the associated spreadsheets.
+ */
 var ERROR_TRACKING = true; // determines whether errors are sent to the error tracking spreadsheet
 var ERROR_TRACKING_SHEET_NAME = 'Errors';
 var INSTALL_TRACKING = true; // determine whether errors are sent to the install tracking spreadsheet
@@ -318,8 +352,7 @@ var INSTALL_TRACKING_SHEET_NAME = 'Installs';
 
 
 /**
- * This is the trigger function that runs automatically when Exposify is added to a sheet.
- * The only important thing it does is to add the Exposify menu to the user's menu bar.
+ * Execute as a trigger whenever the application is installed as an add-on to a Google Spreadsheet.
  */
 function onInstall(e) {
   try {
@@ -334,10 +367,10 @@ function onInstall(e) {
 
 
 /**
- * This is the trigger function that runs automatically whenever the file is opened.
- * Adds the Exposify menu to the user's menu bar.
+ * Execute as a trigger whenever the attached Google Spreadsheet is opened. Add the custom
+ * Exposify menu to the menu bar.
  */
-function onOpen(e) {
+function onOpen() {
   var ui = expos.getUi();
   try {
     ui.createMenu('Exposify')
@@ -439,7 +472,7 @@ var FolderStructure = function(semesterTitle, courseTitle) {
 
 
 /**
- * This is the Exposify prototype object, which contains all the methods and properties of the add-on.
+ * This is the main Exposify constructor, the namespace for most of the methods and properties of the add-on.
  * @constructor
  */
 function Exposify() {
@@ -468,29 +501,32 @@ function Exposify() {
   var yesNo = ui_.ButtonSet.YES_NO;
   // Protected methods
   /**
-   * Returns the active Spreadsheet object.
+   * Return the active Spreadsheet object.
    * @protected
-   * @return  {Spreadsheet}
+   * @return  {Spreadsheet} spreadsheet_ - A Google Apps Spreadsheet object.
    */
   this.getSpreadsheet = function() { return spreadsheet_; };
   /**
-   * Returns the Ui object for this spreadsheet.
+   * Return the Ui object for this spreadsheet.
    * @protected
-   * @return  {Ui}
+   * @return  {Ui} ui_ - The Ui object for the Spreadsheet object to which Exposify is attached.
    */
   this.getUi = function() { return ui_; };
   /**
-   * Set the default time zone for the spreadsheet. Returns the spreadsheet for chaining.
+   * Set the default time zone for the spreadsheet. Return the spreadsheet for chaining.
    * @protected
-   * @return  {Spreadsheet}
+   * @param  {string} timezone - A string representing a timezone in "long" format, as listed by Joda.org
+   * @return  {Spreadsheet} spreadsheet_ - The Spreadsheet object to which Exposify is attached.
    */
   this.setTimezone = function(timezone) {
-    spreadsheet_.setSpreadsheetTimeZone(timezone); // default time zone (see Joda.org)
+    spreadsheet_.setSpreadsheetTimeZone(timezone);
     return spreadsheet_;
   };
   /**
    * Display a dialog box to the user.
    * @protected
+   * @param  {HtmlOutput} htmlDialog - The sanitized html to display as a dialog box to the user.
+   * @param  {string} title - The title of the dialog box.
    */
   this.showModalDialog = function(htmlDialog, title) {
     ui_.showModalDialog(htmlDialog, title);
@@ -516,10 +552,10 @@ function Exposify() {
 
 /**
  * Since menu commands have to call functions in the global namespace, I can't call methods defined on
- * the Exposify prototype. These are the menu functions, and I set them up to pass control to a single
- * function that is defined on Exposify. That function simply converts a constant object literal into
- * an HTML dialog box and displays it to the user. The object literals contain an alert message to
- * display first as a confirmation, followed by the detail of the dialog box (title, width, height, html).
+ * the Exposify prototype. These are the menu functions, and I set them up to pass control to the
+ * function {@code executeMenuCommand()}. That function processes a constant object literal into
+ * a confirmation alert and HTML dialog box and displays them to the user. The object literals contain
+ * the alert message to display first as a confirmation, followed by the details of the dialog box.
  */
 function exposifySetupNewGradebook() { expos.executeMenuCommand.call(expos, SETUP_NEW_GRADEBOOK); }
 function exposifySetupAddStudents() { expos.executeMenuCommand.call(expos, SETUP_ADD_STUDENTS); }
@@ -539,6 +575,12 @@ function exposifyHelp() { return expos.help(); }
 // CALLBACKS
 
 
+/**
+ * As with the menu commands, callbacks from user interfaces (from the client side) that use the
+ * Google API must call functions in the global namespace, at least as far as I can tell. These
+ * functions pass control to other functions that do the actual work. In the future, I may replace
+ * these functions with a single callback handler, as with the menu functions, if it's possible.
+ */
 function setupNewGradebookCallback(courseInfo) { expos.setupNewGradebook(courseInfo); }
 function setupAddStudentsCallback(id) { expos.setupAddStudents(id); }
 function getOAuthToken() { return expos.getOAuthToken(); }
@@ -548,13 +590,15 @@ function getOAuthToken() { return expos.getOAuthToken(); }
 
 
 /**
- * This function checks that an incoming request to make an alert has the correct parameters and raises an
+ * Check that an incoming request to make an alert has the correct parameters and raise an
  * exception if it does not. The parameter is an object with two fields, one containing the type of alert
  * and one containing the message to be displayed to the user. The available alert types are OK, OK_CANCEL,
  * and YES_NO. These are defined as constart values. This function returns another function, which can be
- * executed to display the dialog box.
- * @param  {{alertType: string, msg: string}}
- * @return  {function}
+ * executed to display the dialog box, i.e. with {@code alert(confirmation)();}.
+ * @param  {Object} confirmation - The object holding the arguments to the function.
+ * @param  {string} confirmation.string - Alert type of the alert dialog, which determines the buttons to display.
+ * @param  {string} confirmation.msg - The message to display in the alert dialog.
+ * @return  {Function} alertFunction - A function that can be executed to display the alert.
  */
 Exposify.prototype.alert = function(confirmation) {
   try {
@@ -564,17 +608,22 @@ Exposify.prototype.alert = function(confirmation) {
       var e = 'Alert type ' + confirmation.alertType + 'is not defined on Exposify.';
       throw e // Throw an exception if the alert type doesn't exist, probably superfluous error checking
     } else {
-      return this.makeAlert(confirmation.alertType, confirmation.msg); // Factor out the alert composition
+      var alertFunction = this.makeAlert(confirmation.alertType, confirmation.msg); // Factor out the alert composition
+      return alertFunction;
     }
   } catch(e) { this.logError('Exposify.prototype.alert', e); }
 } // end Exposify.prototype.alert
 
 
 /**
- * Create a dialog box to display to the user using information stored in an object literal.
- * The html field of the argument object should be an HTML file.
- * @param  {{title: string, html: string, width: number, height: number}}
- * @return  {HtmlOutput}
+ * Create a dialog box to display to the user using information stored as a template an object literal
+ * constant. The html field of the argument object should be an HTML file.
+ * @param  {Object} dialog - The template containing the specification of the dialog box.
+ * @param  {string} dialog.title - The title of the dialog box to display.
+ * @param  {string} dialog.html - The html file to process and display as the dialog box content.
+ * @param  {number} dialog.width - The width of the dialog box.
+ * @param  {number} dialog.height - The height of the dialog box.
+ * @return  {HtmlOutput} htmlDialog - The sanitized html dialog box, ready to be displayed to the user.
  */
 Exposify.prototype.createHtmlDialog = function(dialog) {
   try {
@@ -589,7 +638,11 @@ Exposify.prototype.createHtmlDialog = function(dialog) {
 } // end Exposify.prototype.createHtmlDialog
 
 
-// Insert student names into spreadsheet
+/**
+ * Insert student names into the spreadsheet.
+ * @param  {Array} students - A list of students to add to the spreadsheet.
+ * @param  {Sheet} sheet - A Google Apps Sheet object, the sheet to which names will be added.
+ */
 Exposify.prototype.doAddStudents(students, sheet) {
   try {
     var studentList = [];
@@ -604,8 +657,13 @@ Exposify.prototype.doAddStudents(students, sheet) {
 } // end Exposify.prototype.doAddStudents
 
 
-// Format gradebook
-Exposify.prototype.doFormatSheet = function(newCourse) {
+/**
+ * Format a spreadsheet sheet for use as a gradebook for a specified course.
+ * @param  {Object} newCourse - Information about the new course on which to base the formatting.
+ * @param  {Course} newCourse.course - The course information requested from the user.
+ * @param  {Sheet} newCourse.sheet - The sheet to format.
+ */
+ Exposify.prototype.doFormatSheet = function(newCourse) {
   var course = newCourse.course;
   var sheet = newCourse.sheet;
   try {
@@ -666,7 +724,7 @@ Exposify.prototype.doFormatSheet = function(newCourse) {
     if (course.meetingDays.length !== 0) {
       this.doFormatSheetAddAttendanceRecord(course, sheet); // add an attendance sheet if the user asked for it
     }
-    doSetShadedRows(sheet); // set alternating color of student rows
+    this.doSetShadedRows(sheet); // set alternating color of student rows
     sheet.setName(course.numberSection); // name sheet with section number
   } catch(e) {
     this.logError('Exposify.prototype.doFormatSheet', e);
@@ -674,7 +732,11 @@ Exposify.prototype.doFormatSheet = function(newCourse) {
 } // end Exposify.prototype.doFormatSheet
 
 
-// Create attendance sheet to accompany gradebook, if requested
+/**
+ * Add an attendance record to a newly formatted gradebook.
+ * @param  {Course} course - A Course object containing formatting information for the course.
+ * @param  {Sheet} sheet - The Google Apps Sheet object to format.
+ */
 Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
   try {
     var courseData = this.getCourseData(course); // get an object representing the date the semester begins, which days of the week it meets, and the duration in weeks it meets for
@@ -712,6 +774,11 @@ Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
 } // end Exposify.prototype.doFormatSheetAddAttendanceRecord
 
 
+/**
+ * Make Google Apps Data Validation objects for applying grade validation to a new gradebook.
+ * @param  {number} courseNumber - The course number, used to pull data from the course template object literal.
+ * @return  {GradeValidationSet} gradeValidations - The grade validations to apply and the ranges to apply them to.
+ */
 Exposify.prototype.doMakeGradeValidations = function(courseNumber) {
   try {
     var gradeValidations = new GradeValidationSet();
@@ -740,7 +807,6 @@ Exposify.prototype.doMakeGradeValidations = function(courseNumber) {
           gradeValidations.ranges.push(validationSet.rangeToValidate);
         });
       }
-      Logger.log(gradeValidations);
       return gradeValidations; // neat and tidy package
     }
   } catch(e) {
@@ -749,8 +815,14 @@ Exposify.prototype.doMakeGradeValidations = function(courseNumber) {
 } // end Exposify.prototype.doMakeGradeValidations
 
 
-// Calculates a schedule for a course, which is complicated so I don't know if it will always be 100% accurate but probably good enough
-// I am going to burn in hell for writing this function.
+/**
+ * Calculate a schedule for a course, which is complicated so I don't know if it will always be 100% accurate but probably good enough.
+ * I am going to burn in hell for writing this function.
+ * @param  {Date} semesterBeginsDate - The first day of the semester.
+ * @param  {Array} meetingDays - A list of the days of the week when the course normally meets.
+ * @param  {number} meetingWeeks - The number of weeks for which a course meets (default is 15).
+ * @return  {Array} daysToMeet - A list of text dates to be inserted into the spreadsheet.
+ */
 Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, meetingWeeks) {
   try {
     var day = 1;
@@ -805,9 +877,17 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
   }
 } // end Exposify.prototype.doMakeSchedule
 
-// Extracts student names and ids from the 'participant data file compatible with Microsoft Excel' downloadable from the Site Info page of a Sakai course site.
-// Will only work if that file has been unmodified. This function works whether or not the file has been converted from csv (comma separated values) format into Google Sheets format.
-function doParseSpreadsheet(id, mimeType) {
+
+/**
+ * Extract student names and ids from the 'participant data file compatible with Microsoft Excel' downloadable
+ * from the Site Info page of a Sakai course site. This function will only work if that file has been unmodified.
+ * This function works whether or not the file has been converted from csv (comma separated values) format
+ * into Google Sheets format. Returns an array of Student objects with which to populate the spreadsheet gradebook.
+ * @param  {string} id - The id of the Google Apps File object to open.
+ * @param  {string} mimeType - The mimeType of the Google Apps File object to open.
+ * @return  {Array} students - A list of Student objects, the students to add to the gradebook.
+ */
+Exposify.prototype.doParseSpreadsheet = function(id, mimeType) {
   try {
     var students = [];
     if (mimeType === 'application/vnd.google-apps.spreadsheet') {
@@ -832,21 +912,26 @@ function doParseSpreadsheet(id, mimeType) {
     }
     return students;
   } catch(e) {
-    logError('doParseSpreadsheet', e);
+    this.logError('Exposify.prototype.doParseSpreadsheet', e);
   }
-}
+} // end Exposify.prototype.doParseSpreadsheet
 
 
+/**
+ * Set formulas for automatically calculating final grades in gradebooks that require it.
+ * @param  {Sheet} sheet - The Google Apps Sheet object to modify.
+ * @param  {number} courseNumber - The course number, used to pull data from the course template object literal.
+ */
 Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
   try {
     var courseFormat = COURSE_FORMATS[courseNumber];
-    var calcRange = sheet.getRange(courseFormat.finalGradeFormulaRange);
+    var calcRange = sheet.getRange(courseFormat.finalGradeFormulaRange); // get the Range object representing the cells to which to apply the formulas
     var formula = courseFormat.finalGradeFormula;
     var formulas = [];
     for (i = 4; i < 26; i++) { // 22 students maximum
       formulas.push([formula.replace('$', i, 'g')]); // substitle '$' wildcard with the appropriate row number for each cell to which we are applying the final grade formula
     }
-    calcRange.setFormulas(formulas);
+    calcRange.setFormulas(formulas); // apply the formulas to the Range object
   } catch(e) {
     this.logError('Exposify.prototype.doSetFormulas', e);
   }
@@ -962,7 +1047,7 @@ Exposify.prototype.getCourseData = function(course) {
     var semesterYear = semester.match(/\d+/)[0]; // the semester string with the season removed, i.e. '2015'
     var semesterSeason = semester.match(/\D+/)[0].trim(); // the semester string with the year removed, i.e. 'Fall'
     var meetingDays = course.meetingDays;
-    var meetingWeeks = 15; // spring and fall courses meet for 15 weeks
+    var meetingWeeks = 15; // spring and fall courses meet for 15 weeks (yay magic numbers)
     switch (semesterSeason) {
       case 'Spring':
         var semesterMonth = 0; // January = 0
