@@ -1174,47 +1174,75 @@ Exposify.prototype.getHtmlOutputFromFile = function(filename) {
 }; // end Exposify.prototype.getHtmlOutputFromFile
 
 
+/**
+ * Return the last day of a month for a given year.
+ * @param {number} month - A month.
+ * @param {year} year - A year.
+ * @return {number}
+ */
 Exposify.prototype.getLastDayOfMonth = function(month, year) {
    month += 1;
    return month === 2 ? year & 3 || !(year % 25) && year & 15 ? 28 : 29 : 30 + (month + (month >> 3 ) & 1); // do some bit twiddling to figure out the last day of any given month, hard to read code courtesy of http://jsfiddle.net/TrueBlueAussie/H89X3/22/
 } // end Exposify.prototype.getLastDayOfMonth
 
 
-// Return name in last name, first name order (with comma)
+/**
+ * Switch a name from "last, first" to "first last" order.
+ * @param {string} name - A name in last, first order.
+ * @return {string} newName - The name in first last order.
+ */
 Exposify.prototype.getNameFirstLast = function(name) {
   var names = name.split(','); // if name string contains a comma, assume they are in last, first order and split them at the comma
   var newName = names[1].trim() + ' ' + names[0].trim(); // remove leading and trailing whitespace but add a space between them
   return newName;
-}
+} // end Exposify.prototype.getNameFirstLast
 
 
-// Return name in first name, last name order
+/**
+ * Switch a name from "first last" to "last, first" order.
+ * @param {string} name - A name in first last order.
+ * @return {string} newName - The name in last, first order.
+ */
 Exposify.prototype.getNameLastFirst = function(name) {
   var names = name.split(' '); // if names are in first last order, split them at the space
   var newName = names.pop() + ', ' + names.join(' '); // insert commas between the names and add a space
   return newName;
-}
+} // end Exposify.prototype.getNameLastFirst
 
 
 /**
  * Get authorization for Drive access from client side code by calling a dummy function, just in case
  * the user needs to authenticate, and then returning the necessary OAuth token.
- * @return {string}
+ * @return {Object}
+ * @return {string} Object.token - An OAuth token.
+ * @return {string} Object.key - The Developer API key for this application.
  */
 Exposify.prototype.getOAuthToken = function() {
-  DriveApp.getRootFolder();
-  var token = ScriptApp.getOAuthToken();
-  var key = this.getDeveloperKey();
-  return {token: token, key: key};
+  try {
+    DriveApp.getRootFolder();
+    var token = ScriptApp.getOAuthToken();
+    var key = this.getDeveloperKey();
+    return {token: token, key: key};
+  } catch(e) { this.logError('Exposify.prototype.getOAuthToken', e); }
 } // end Exposify.prototype.getOAuthToken
 
 
+/**
+ * Return the semester for which a given gradebook is used.
+ * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve the semester.
+ * @return {string} semesterTitle - The semester.
+ */
 Exposify.prototype.getSemesterTitle = function(sheet) {
   var semesterTitle = sheet.getRange('A2').getValue(); // the semester, from the gradebook
   return semesterTitle;
 } // end Exposify.prototype.getSemesterTitle
 
 
+/**
+ * Return a string that concatenates a given semester with the current year.
+ * @param {string} semester - A semester.
+ * @return {string}
+ */
 Exposify.prototype.getSemesterYearString = function(semester) {
   var year = new Date().getFullYear(); // assume any given gradebook is being created for the current year (not sure if that's a good idea, but it seems likely in the vast majority of cases)
   return semester + ' ' + year; // create a string from the semester and the current year, i.e. 'Fall 2015'
@@ -1260,6 +1288,11 @@ Exposify.prototype.getStudentNames = function(sheet) {
 } // end Exposify.prototype.getStudentNames
 
 
+/**
+ * Return the date on which Thanksgiving falls in November for a given year.
+ * @param {number} year - A year.
+ * @return {number}
+ */
 Exposify.prototype.getTuesdayOfThanksgivingWeek = function(year) {
   var firstDayOfNovember = new Date(year, 10, 1).getDay();
   var firstThursdayOfNovember = 1; // if first day of November is a Thursday
@@ -1276,12 +1309,13 @@ Exposify.prototype.getTuesdayOfThanksgivingWeek = function(year) {
 
 
 /**
- * If I catch an error in one of my functions, I want to log it to a spreadsheet on my Google Drive
+ * Log a function and exception caught by another function to a spreadsheet on my Google Drive
  * so I can check into it. This is my primitive form of error tracking, which I presume is better
  * than nothing. This function requires the name of the calling function and the error message
  * caught by the exception handling code block. The latter is displayed to the user for reporting
  * back to me. Error tracking can be turned off by setting the ERROR_TRACKING constant to false.
- * @param {string, string}
+ * @param {string} callingFunction - The name of the function that is logging the error.
+ * @param {string} traceback - The runtime error message to record in the error log.
  */
 Exposify.prototype.logError = function(callingFunction, traceback) {
   if (ERROR_TRACKING === true) {
@@ -1303,8 +1337,8 @@ Exposify.prototype.logError = function(callingFunction, traceback) {
 
 
 /**
- * This function records the email addresses of people who install Exposify and the
- * spreadsheet id numbers of the documents to which it is attached. This is intended
+ * Record the email address of someone who installs Exposify and the Google Docs
+ * spreadsheet id number of the document to which it is attached. This is intended
  * for communication and updating purposes only. It can be turned off by setting the
  * INSTALL_TRACKING constant to false.
  */
@@ -1326,11 +1360,13 @@ Exposify.prototype.logInstall = function() {
 
 
 /**
- * Creates an alert dialog box to be displayed to the user. The alert is comprised of an alert type, which should be
+ * Create an alert dialog box to be displayed to the user. The alert is comprised of an alert type, which should be
  * OK, OK_CANCEL, or YES_NO, and a message to print in the dialog box. The alert types are constant values. This
- * function returns aanother function that can be executed to display the dialog box.
- * @param {alertType: string, msg: string}
- * @return {Function}
+ * function returns another function that can be executed to display the dialog box.
+ * @param {Object}
+ * @param {string} Object.alertType - The type of alert to display.
+ * @param {string} Object.msg - The message to display in the alert.
+ * @return {Function} dialog - The function for displaying the alert dialog.
  */
 Exposify.prototype.makeAlert = function(alertType, msg) {
   try {
@@ -1355,6 +1391,11 @@ Exposify.prototype.makeAlert = function(alertType, msg) {
 } // end Exposify.prototype.makeAlert
 
 
+/**
+ * Set a list of given grade validations as data validations on a given Sheet object.
+ * @param {Sheet} sheet - A Google Apps Sheet object on which to set the data validations.
+ * @param {GradeValidationSet} gradeValidations - A GradeValidationSet object containing the validation data.
+ */
 Exposify.prototype.setGradeValidations = function(sheet, gradeValidations) {
   try {
     gradeValidations.ranges.forEach(function(rangeList, index) {
@@ -1365,9 +1406,9 @@ Exposify.prototype.setGradeValidations = function(sheet, gradeValidations) {
 
 
 /**
- * Converts a CSV or Google Sheets file into a list of student names and adds them to the
+ * Convert a CSV or Google Sheets file into a list of student names and add them to the
  * gradebook.
- * @param {string}
+ * @param {string} id - The file id of the file from which to extract student names.
  */
 Exposify.prototype.setupAddStudents = function(id) {
   try {
@@ -1378,9 +1419,9 @@ Exposify.prototype.setupAddStudents = function(id) {
     var filename = file.getName();
     var students = [];
     if (mimeType === MIME_TYPE_GOOGLE_SHEET) {
-      students = doParseSpreadsheet(id, MIME_TYPE_GOOGLE_SHEET);
+      students = this.doParseSpreadsheet(id, MIME_TYPE_GOOGLE_SHEET);
     } else if (mimeType === MIME_TYPE_CSV) {
-      students = doParseSpreadsheet(id, MIME_TYPE_CSV);
+      students = this.doParseSpreadsheet(id, MIME_TYPE_CSV);
     } else {
       this.alert({msg: ERROR_SETUP_ADD_STUDENTS_INVALID.replace('$', filename)})(); // '$' is a wildcard value that is replaced with the filename
       return;
@@ -1388,19 +1429,23 @@ Exposify.prototype.setupAddStudents = function(id) {
     if (students.length === 0) {
       this.alert({msg: ERROR_SETUP_ADD_STUDENTS_EMPTY.replace('$', filename)})();
     } else {
-      doAddStudents(students, sheet);
+      this.doAddStudents(students, sheet);
       spreadsheet.toast(ALERT_SETUP_ADD_STUDENTS_SUCCESS.replace('$', filename), TOAST_TITLE, TOAST_DISPLAY_TIME);
     }
   } catch(e) {
     this.alert({msg: ERROR_SETUP_ADD_STUDENTS})();
-    this.logError('setupAddStudentsCallback', e);
+    this.logError('Exposify.prototype.setupAddStudents', e);
   }
 } // end Exposify.prototype.setupAddStudents
 
 
 /**
- * Converts user input, collected from a dialog box, into a newly formatted gradebook.
- * @param {{course: string, section: string, semester: string, meetingDays: array}}
+ * Convert user input, collected from a dialog box, into a newly formatted gradebook.
+ * @param {Object} courseInfo - User input collected into an object.
+ * @param {string} courseInfo.course - A course number.
+ * @param {string} courseInfo.section - A section code.
+ * @param {string} courseInfo.semester - A semester name.
+ * @param {Array} courseInfo.meetingDays - A list of days of the week when the class meets.
  */
 Exposify.prototype.setupNewGradebook = function(courseInfo) {
   var spreadsheet = this.getActiveSpreadsheet();
