@@ -116,6 +116,7 @@ var ALERT_SETUP_SHARE_FOLDERS_MISSING_GRADED_FOLDER = 'There is no folder for gr
 var ALERT_SETUP_SHARE_FOLDERS_SUCCESS = 'The folders were successfully shared!';
 var ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS = 'A gradebook for section $ already exists. If you want to overwrite it, make it the active spreadsheet and try again.';
 var ALERT_SETUP_NEW_GRADEBOOK_SUCCESS = 'New gradebook created for $.';
+var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. Do that before anything else.';
 
 var TOAST_DISPLAY_TIME = 10; // how long should the little toast window linger before disappearing
 var TOAST_TITLE = 'Success!' // toast window title
@@ -377,8 +378,9 @@ function onInstall(e) {
  */
 function onOpen() {
   var ui = expos.getUi();
+  var menu = expos.getMenu();
   try {
-    ui.createMenu('Exposify')
+    menu
       .addSubMenu(ui.createMenu('Setup')
         .addItem('New gradebook...', 'exposifySetupNewGradebook')
         .addItem('Add students to gradebook...', 'exposifySetupAddStudents')
@@ -491,17 +493,22 @@ function Exposify() {
    */
   var ui_ = SpreadsheetApp.getUi();
   /**
+   * Stores a reference to the Menu object for this spreadsheet.
+   * @private {Menu}
+   */
+  var menu_ = ui_.createMenu('Exposify');
+  /**
    * Stores references to common UI buttons, so I don't have to look them up at runtime.
    * @private {Button}
    */
-  var ok = ui_.Button.OK;
-  var yes = ui_.Button.YES;
+  var ok_ = ui_.Button.OK;
+  var yes_ = ui_.Button.YES;
   /**
    * Stores references to common UI button sets, so I don't have to look them up at runtime.
    * @private {ButtonSet}
    */
-  var okCancel = ui_.ButtonSet.OK_CANCEL;
-  var yesNo = ui_.ButtonSet.YES_NO;
+  var okCancel_ = ui_.ButtonSet.OK_CANCEL;
+  var yesNo_ = ui_.ButtonSet.YES_NO;
   // Protected methods
   /**
    * Return the active Spreadsheet object.
@@ -516,6 +523,12 @@ function Exposify() {
    */
   this.getUi = function() { return ui_; };
   /**
+   * Return the Menu object for this spreadsheet.
+   * @protected
+   * @return {Menu} menu_ - The Menu object for the Spreadsheet object to which Exposify is attached.
+   */
+  this.getMenu = function() {return menu_; };
+  /**
    * Set the default time zone for the spreadsheet. Return the spreadsheet for chaining.
    * @protected
    * @param {string} timezone - A string representing a timezone in "long" format, as listed by Joda.org
@@ -524,6 +537,7 @@ function Exposify() {
   this.setTimezone = function(timezone) {
     spreadsheet_.setSpreadsheetTimeZone(timezone);
     return spreadsheet_;
+  this.menu = ui_.createMenu('Exposify');
   };
   /**
    * Display a dialog box to the user.
@@ -548,10 +562,10 @@ function Exposify() {
    * @protected {Object}
    */
   this.alertUi = {
-    ok: ok,
-    yes: yes,
-    okCancel: okCancel,
-    yesNo: yesNo
+    ok: ok_,
+    yes: yes_,
+    okCancel: okCancel_,
+    yesNo: yesNo_
     };
   // Initialization procedures
   spreadsheet_.setSpreadsheetTimeZone(TIMEZONE); // sets the default time zone to the value stored by TIMEZONE
@@ -564,15 +578,17 @@ function Exposify() {
 /**
  * Since menu commands have to call functions in the global namespace, I can't call methods defined on
  * the Exposify prototype. These are the menu functions, and I set them up to pass control to the
- * function {@code executeMenuCommand()}. That function processes a constant object literal into
- * a confirmation alert and HTML dialog box and displays them to the user. The object literals contain
- * the alert message to display first as a confirmation, followed by the details of the dialog box.
+ * function {@code checkSheetStatus()} if they shouldn't be executed if no gradebook has been created,
+ * or function {@code executeMenuCommand()} otherwise. The latter function processes a constant object
+ * literal into a confirmation alert and HTML dialog box and displays them to the user. The object
+ * literals contain the alert message to display first as a confirmation, followed by the details of the
+ * dialog box.
  */
 function exposifySetupNewGradebook() { expos.executeMenuCommand.call(expos, DIALOG_SETUP_NEW_GRADEBOOK); }
-function exposifySetupAddStudents() { expos.executeMenuCommand.call(expos, DIALOG_SETUP_ADD_STUDENTS); }
-function exposifyAssignmentsCalcWordCounts() { return expos.executeMenuCommand.call(expos, {command: 'assignmentsCalcWordCounts'}); }
-function exposifyFormatSwitchStudentNames() { return expos.executeMenuCommand.call(expos, {command: 'formatSwitchStudentNames'}); }
-function exposifyFormatSetShadedRows() { return expos.executeMenuCommand.call(expos, {command: 'formatSetShadedRows'}); }
+function exposifySetupAddStudents() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_ADD_STUDENTS); }
+function exposifyAssignmentsCalcWordCounts() { return expos.checkSheetStatus.call(expos, {command: 'assignmentsCalcWordCounts'}); }
+function exposifyFormatSwitchStudentNames() { return expos.checkSheetStatus.call(expos, {command: 'formatSwitchStudentNames'}); }
+function exposifyFormatSetShadedRows() { return expos.checkSheetStatus.call(expos, {command: 'formatSetShadedRows'}); }
 function exposifyHelp() { return expos.executeMenuCommand.call(expos, {command: 'help'}); }
 
 // old functions to be replaced
@@ -624,6 +640,26 @@ Exposify.prototype.alert = function(confirmation) {
     }
   } catch(e) { this.logError('Exposify.prototype.alert', e); }
 } // end Exposify.prototype.alert
+
+
+/**
+ * Check whether a gradebook has already been set up for this sheet. If so, pass
+ * control to the {@code executeMenuCommand()} function. Return false otherwise.
+ * @param {Object} params - The parameters passed to the original menu command.
+ */
+Exposify.prototype.checkSheetStatus = function(params) {
+  try {
+    var sheet = this.getActiveSheet();
+    var check = this.getSheetStatus(sheet);
+    if (check === false) {
+      var alert = this.alert({msg: ALERT_NO_GRADEBOOK});
+      alert();
+      return false
+    } else {
+      this.executeMenuCommand(params);
+    }
+  } catch(e) { this.logError('Exposify.prototype.checkSheetStatus', e); }
+} // end Exposify.prototype.checkSheetStatus
 
 
 /**
@@ -735,6 +771,7 @@ Exposify.prototype.doAddStudents = function (students, sheet) {
     }
     this.doSetShadedRows(sheet); // set alternating color of student rows
     sheet.setName(course.numberSection); // name sheet with section number
+    return true;
   } catch(e) { this.logError('Exposify.prototype.doFormatSheet', e); }
 } // end Exposify.prototype.doFormatSheet
 
@@ -998,7 +1035,7 @@ Exposify.prototype.executeMenuCommand = function(params) {
       var alert = this.alert(params.alert);
       var response = alert();
     }
-    if (params.hasOwnProperty('dialog') && response) { // show the dialog, if there is one, and if the alert response is true
+    if (params.hasOwnProperty('dialog') && response === true) { // show the dialog, if there is one, and if the alert response is true
       var dialog = params.dialog;
       var htmlDialog = this.createHtmlDialog(dialog); // "sanitize" the HTML so Google will display it
       this.showModalDialog(htmlDialog, dialog.title); // to limit the number of times I reference Ui
@@ -1309,6 +1346,21 @@ Exposify.prototype.getTuesdayOfThanksgivingWeek = function(year) {
 
 
 /**
+ * Check whether a gradebook has been set up for a Sheet. Return true if so, false otherwise.
+ * @param {Sheet} sheet - The Google Apps Sheet object to check.
+ * @return {boolean}
+ */
+Exposify.prototype.getSheetStatus = function(sheet) {
+  try {
+    var props = PropertiesService.getDocumentProperties();
+    var key = sheet.getName();
+    var status = props.getProperty(key);
+    return status === 'active' ? true : false;
+  } catch(e) { this.logError('Exposify.prototype.getSheetStatus', e); }
+} // end Exposify.prototype.getSheetStatus
+
+
+/**
  * Log a function and exception caught by another function to a spreadsheet on my Google Drive
  * so I can check into it. This is my primitive form of error tracking, which I presume is better
  * than nothing. This function requires the name of the calling function and the error message
@@ -1406,6 +1458,23 @@ Exposify.prototype.setGradeValidations = function(sheet, gradeValidations) {
 
 
 /**
+ * Set a property for this document indicating that a gradebook has been set up on
+ * this sheet. Return true if successful, false otherwise.
+ * @param {Sheet} sheet - Google Apps Sheet object for which to set the property.
+ * @return {boolean}
+ */
+Exposify.prototype.setSheetStatus = function(sheet) {
+  try {
+    var props = PropertiesService.getDocumentProperties();
+    var key = sheet.getName();
+    var status = props.setProperty(key, 'active'); // set property as a key/value pair; the name of the Sheet is the key
+    var check = this.getSheetStatus(sheet); // make sure the property was actually set
+    return check === true ? true : false;
+  } catch(e) { this.logError('Exposify.prototype.setSheetStatus', e); }
+} // end Exposify.prototype.setSheetStatus
+
+
+/**
  * Convert a CSV or Google Sheets file into a list of student names and add them to the
  * gradebook.
  * @param {string} id - The file id of the file from which to extract student names.
@@ -1459,8 +1528,15 @@ Exposify.prototype.setupNewGradebook = function(courseInfo) {
   }
   var newCourse = new Course(courseInfo); // create new Course object with information collected from the user by the dialog box
   try {
-    this.doFormatSheet({course: newCourse, sheet: sheet}); // do the actual work, probably in a way that I should further refactor
-    spreadsheet.toast(ALERT_SETUP_NEW_GRADEBOOK_SUCCESS.replace('$', newCourse.nameSection), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
+    var check = this.doFormatSheet({course: newCourse, sheet: sheet}); // do the actual work, probably in a way that I should further refactor
+    if (check === true) {
+      var checkStatus = this.setSheetStatus(sheet);
+    }
+    if (checkStatus === true) {
+      spreadsheet.toast(ALERT_SETUP_NEW_GRADEBOOK_SUCCESS.replace('$', newCourse.nameSection), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
+    } else {
+      this.alert({msg: ERROR_SETUP_NEW_GRADEBOOK_FORMAT})();
+    }
   } catch(e) {
     this.alert({msg: ERROR_SETUP_NEW_GRADEBOOK_FORMAT})();
     this.logError('Exposify.prototype.setupNewGradebook', e);
