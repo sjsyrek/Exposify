@@ -54,6 +54,7 @@
 //TODO: make error messages more informative
 //TODO: make sure error logging is correct format
 //TODO: fix JSDoc param comments
+//TODO: make it possible to specify the maximum number of students in a course
 
 
 /**
@@ -79,6 +80,7 @@ var HELP_HTML = 'Exposify_help.html'; // the help file
 var STUDENT_RANGE = 'A4:A25'; // where student names are stored on the spreadsheet, best not to change
 var STUDENT_ID_RANGE = 'A4:B25'; // student names plus ids, also don't change this
 var MAX_STUDENTS = 22; // maximum number of students in any course (not a good idea to change this)
+
 
 // Ui
 var OK = 'ok';
@@ -442,11 +444,9 @@ function GradeValidationSet() {
  * @constructor
  */
 function Student(name, netid) {
-  var email_ = netid + EMAIL_DOMAIN;
   this.name = name;
   this.netid = netid;
-  this.getEmail = function() { return email_; }; // need to make sure this works elsewhere !!!!! FIX !!!!! also add jsdocs to this and other objects here.
-  this.setEmail = function(email) { email_ = email; }; // validate email with util function?
+  this.email = netid + EMAIL_DOMAIN;
 }; // end Student
 
 
@@ -941,7 +941,7 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
 
 /**
  * Make the gradebook easier to read by setting alternating shaded and unshaded rows.
- * @param  {Sheet} sheet - The Google Apps Sheet object to modify.
+ * @param  {Sheet} sheet - The Google Apps Sheet object with the gradebook to modify.
  */
  Exposify.prototype.doSetShadedRows(sheet) {
   try {
@@ -968,31 +968,50 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
 } // end Exposify.prototype.doSetShadedRows
 
 
-// Switch student name order from last name first to first name last or vice versa
-function doSwitchStudentNames(sheet) {
+/**
+ * Retrieve student data from the gradebook and convert it into an array of Student objects.
+ * @param  {Sheet} sheet - The Google Apps Sheet object from which to retrieve student data.
+ * @return {Array} students - A list of Student objects containing student names and email addresses.
+ */
+Exposify.prototype.getStudents(sheet) {
   try {
-    var range = sheet.getRange(STUDENT_ID_RANGE).getValues();
+    var studentData = sheet.getRange(4, 1, MAX_STUDENTS, 2).getValues();
     var students = [];
-    for (i = 0; i < 22; i++) {
-      if (range[i][0] !== '' && range[i][1] !== '') { // only check rows that actually contain student data
-        students.push(new Student(range[i][0], range[i][1]));
+    studentData.forEach(function(student) {
+      if (student[0] !== '') {
+        var name = student[0];
+        var netid = student[1];
+        students.push(new Student(name, netid));
       }
-    }
-    for (i = 0; i < students.length; i++) {
+    });
+    return students;
+  } catch(e) {
+    this.logError('Exposify.prototype.getStudents', e);
+  }
+} // end Exposify.prototype.getStudents
+
+/**
+ * Switch student name order from last name first to first name last or vice versa.
+ * @param  {Sheet} sheet - The Google Apps Sheet object with the gradebook to modify.
+ */
+Exposify.prototype.doSwitchStudentNames(sheet) {
+  try {
+    var students = this.getStudents(sheet);
+    for (i = 0; i < students.length; i += 1) {
       var name = students[i].name;
       if (name.match(/.+,.+/)) { // match student names against a regular expression pattern to determine whether or not the name strings contain commas... I hope there aren't any people whose names actually contain commas
-        students[i].name = getNameFirstLast(name);
+        students[i].name = this.getNameFirstLast(name);
       } else {
-        students[i].name = getNameLastFirst(name);
+        students[i].name = this.getNameLastFirst(name);
       }
     }
-    doAddStudents(students, sheet); // repopulate the sheet with the student names
-    sheet.sort(1);
-    doSetShadedRows(sheet); // because the sort will mess them up
+    this.doAddStudents(students, sheet); // repopulate the sheet with the student names
+    sheet.sort(1); // sort sheet alphabetically
+    this.doSetShadedRows(sheet); // because the sort will probably mess them up
   } catch(e) {
-    logError('doSwitchStudentNames', e);
+    this.logError('Exposify.prototype.doSwitchStudentNames', e);
   }
-}
+} // end Exposify.prototype.doSwitchStudentNames
 
 
 /**
