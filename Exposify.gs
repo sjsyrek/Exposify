@@ -78,6 +78,7 @@ var TIMEZONE = 'America/New_York'; // default timezone
 var HELP_HTML = 'Exposify_help.html'; // the help file
 var STUDENT_RANGE = 'A4:A25'; // where student names are stored on the spreadsheet, best not to change
 var STUDENT_ID_RANGE = 'A4:B25'; // student names plus ids, also don't change this
+var MAX_STUDENTS = 22; // maximum number of students in any course (not a good idea to change this)
 
 // Ui
 var OK = 'ok';
@@ -938,11 +939,13 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
 } // end Exposify.prototype.doFormatSheetSpecialRules
 
 
-// Sets a background color on alternating rows to make them easier to read.
-function doSetShadedRows(sheet) {
+/**
+ * Make the gradebook easier to read by setting alternating shaded and unshaded rows.
+ * @param  {Sheet} sheet - The Google Apps Sheet object to modify.
+ */
+ Exposify.prototype.doSetShadedRows(sheet) {
   try {
-    var sheetLastRow = sheet.getLastRow();
-    var lastRow = (sheetLastRow === 3 ? 25 : sheetLastRow); // if the sheet doesn't have any students listed in it, process 25 rows, otherwise process the rows that contain student data
+    var lastRow = MAX_STUDENTS + 3; // maximum number of students plus three to account for title rows
     var lastColumn = sheet.getLastColumn();
     var rows = lastRow - 3;
     var shadedRange = sheet.getRange(4, 1, rows, lastColumn);
@@ -960,9 +963,10 @@ function doSetShadedRows(sheet) {
     }
     shadedRange.setBackgrounds(newRows); // set row backgrounds
   } catch(e) {
-    logError('doSetShadedRows', e);
+    this.logError('Exposify.prototype.doSetShadedRows', e);
   }
-}
+} // end Exposify.prototype.doSetShadedRows
+
 
 // Switch student name order from last name first to first name last or vice versa
 function doSwitchStudentNames(sheet) {
