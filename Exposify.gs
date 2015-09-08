@@ -72,31 +72,23 @@
 // CONSTANTS
 
 
-// Settings
 var EMAIL_DOMAIN = '@scarletmail.rutgers.edu'; // default email domain for students
 var STYLESHEET = 'Stylesheet.html'; // can't include a css stylesheet, so we put styles here and concatenate the html pages later
 var TIMEZONE = 'America/New_York'; // default timezone
-var HELP_HTML = 'Exposify_help.html'; // the help file
 var MAX_STUDENTS = 22; // maximum number of students in any course (not a good idea to change this)
 
-
-// Ui
-var OK = 'ok';
+var OK = 'ok'; // UI constant aliases
 var OK_CANCEL = 'okCancel';
 var YES_NO = 'yesNo';
 var PROMPT = 'prompt';
-var GRADED_PAPERS_FOLDER_NAME = 'Graded Papers';
-var SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS_TITLE = 'Word counts';
-var SIDEBAR_HELP_TITLE = 'Exposify Help';
 
-// Formatting
+var GRADED_PAPERS_FOLDER_NAME = 'Graded Papers'; // name of the folder for Graded Papers
 var ATTENDANCE_SHEET_COLUMN_WIDTH = 25; // width of columns in the attendance record part of the gradebook, 25 is the minimum recommended if you want all the dates to be visible
 var COLOR_BLANK = '#ffffff'; // #ffffff is white
 var COLOR_SHADED = '#ededed'; // #ededed is light grey, a nice color for contrast and also a pun on the purpose of this application
 var FONT = 'verdana,sans,sans-serif'; // font for the gradebook, with fallbacks
 
-// Utilities
-var DAYS = {
+var DAYS = { // an enum for days of the week; do not ever change these values or the whole thing will blow up
   'Sunday': 0,
   'Monday': 1,
   'Tuesday': 2,
@@ -104,12 +96,16 @@ var DAYS = {
   'Thursday': 4,
   'Friday': 5,
   'Saturday': 6
-}; // Do not ever change these values or the whole thing will blow up.
+};
+
 var EMAIL_REGEX = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/; // a regular expression for validating email addresses
-var MIME_TYPE_CSV = 'text/csv';
+
+var MIME_TYPE_CSV = 'text/csv'; // file MIME types for reading file data
 var MIME_TYPE_GOOGLE_SHEET = 'application/vnd.google-apps.spreadsheet';
 
-// Alerts
+/**
+ * Default text to display for various alert messages throughout the application.
+ */
 var ALERT_INSTALL_THANKS = 'Thanks for installing Exposify! Add a new section by selecting \"Setup New Expos Section\" in the Exposify menu.';
 var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '\'$\' successfully imported! You should double-check the spreadsheet to make sure it\'s correct.';
 var ALERT_SETUP_CREATE_FOLDER_STRUCTURE = 'This command will create or update the folder structure for your Expos section, including a shared coursework folder and individual folders for each student based on this sheet. Do you wish to proceed?';
@@ -124,7 +120,6 @@ var ALERT_SETUP_NEW_GRADEBOOK_SUCCESS = 'New gradebook created for $.';
 var TOAST_DISPLAY_TIME = 10; // how long should the little toast window linger before disappearing
 var TOAST_TITLE = 'Success!' // toast window title
 
-// Errors
 var ERROR_INSTALL = 'There was a problem with installation. Please try again.';
 var ERROR_FORMAT_SET_SHADED_ROWS = 'There was a problem formatting the sheet. Please try again.';
 var ERROR_FORMAT_SWITCH_STUDENT_NAMES = 'There was a problem formatting the sheet. Please try again.';
@@ -136,7 +131,6 @@ var ERROR_SETUP_CREATE_FOLDER_STRUCTURE = 'There was a problem creating the fold
 var ERROR_SETUP_SHARE_FOLDERS = 'There was a problem sharing the folders. Please try again.';
 var ERROR_ASSIGNMENTS_CALC_WORD_COUNTS = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command.';
 
-// Templates
 /* The COURSE_FORMATS object literal contains the basic data used to format Exposify gradebooks,
  * depending on the course selected. Altering these could have unpredictable effects on the application,
  * though new course formats can be added (use the 'O' object, for 'Other' courses, as a model). The template
@@ -192,8 +186,8 @@ var COURSE_FORMATS = {
       /**
 							* Package and return grade validation data as an object with one field for the non-numeric
 							* data validations specified for this course. I could probably generalize this.
-							* @return  {Object}
-							* @return  {Array} Object.nonNumeric - The non-numeric grade validations.
+							* @return {Object}
+							* @return {Array} Object.nonNumeric - The non-numeric grade validations.
 							*/
       getGradeValidations: function() {
         var nonNumeric = [this.paperGrades, this.examGrades, this.finalGrades, this.roughDraftStatus, this.lateFinalStatus, this.incompleteFinalStatus];
@@ -239,9 +233,9 @@ var COURSE_FORMATS = {
       /**
 							* Package and return grade validation data as an object with two fields for both the non-numeric
 							* and numeric data validations specified for this course.
-							* @return  {Object}
-							* @return  {Array} Object.nonNumeric - The non-numeric grade validations.
-							* @return  {Array} Object.numeric - The numeric grade validations.
+							* @return {Object}
+							* @return {Array} Object.nonNumeric - The non-numeric grade validations.
+							* @return {Array} Object.numeric - The numeric grade validations.
 							*/
       getGradeValidations: function() {
         var nonNumeric = [this.roughDraftStatus, this.lateFinalStatus, this.incompleteFinalStatus, this.proposalGrade, this.finalGrades];
@@ -270,9 +264,9 @@ var COURSE_FORMATS = {
       /**
 							* Package and return grade validation data as an object with two fields for both the non-numeric
 							* and numeric data validations specified for this course.
-							* @return  {Object}
-							* @return  {Array} Object.nonNumeric - The non-numeric grade validations.
-							* @return  {Array} Object.numeric - The numeric grade validations.
+							* @return {Object}
+							* @return {Array} Object.nonNumeric - The non-numeric grade validations.
+							* @return {Array} Object.numeric - The numeric grade validations.
 							*/
       getGradeValidations: function() {
         var nonNumeric = [this.finalGrades];
@@ -308,11 +302,10 @@ var SUMMER_SESSIONS = {
   'V': [2, 4, 22, 10],
 };
 
-// Dialogs
 /**
- * These templates are used for the alerts displayed when a user selects a given menu option.
+ * These templates are used for the alerts and dialogs displayed when a user selects the associated menu options
  */
-var SETUP_NEW_GRADEBOOK = {
+var DIALOG_SETUP_NEW_GRADEBOOK = {
   alert: {
     alertType: YES_NO,
     msg: 'This will replace all data on this sheet. Are you sure you wish to proceed?'
@@ -325,7 +318,7 @@ var SETUP_NEW_GRADEBOOK = {
   },
   error_msg: 'There was a problem with the setup process. Please try again.'
 };
-var SETUP_ADD_STUDENTS = {
+var DIALOG_SETUP_ADD_STUDENTS = {
   alert: {
     alertType: YES_NO,
     msg: 'This will replace any students currently listed in this gradebook. Are you sure you wish to proceed?'
@@ -339,9 +332,20 @@ var SETUP_ADD_STUDENTS = {
   error_msg: 'There was a problem accessing your Drive. Please try again.'
 };
 
-// Logging
 /**
- * Toggles whether or not I am tracking errors and installs and the names of the associated spreadsheets.
+ * These templates are used for the sidebars displayed when a user selects the associated menu options
+ */
+var SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS = {
+  title: 'Word counts',
+  html: 'assignmentsCalcWordCounts.html'
+};
+var SIDEBAR_HELP = {
+  title: 'Exposify Help',
+  html: 'Exposify_help.html'
+};
+
+/**
+ * Toggles for whether or not I am tracking errors and installs and the names of the associated spreadsheets.
  */
 var ERROR_TRACKING = true; // determines whether errors are sent to the error tracking spreadsheet
 var ERROR_TRACKING_SHEET_NAME = 'Errors';
@@ -478,23 +482,23 @@ function Exposify() {
   // Private properties
   /**
    * Stores a reference to the active Spreadsheet object, which shouldn't vary after the object is created.
-   * @private  {Spreadsheet}
+   * @private {Spreadsheet}
    */
   var spreadsheet_ = SpreadsheetApp.getActiveSpreadsheet();
   /**
    * Stores a reference to the Ui object for this spreadsheet, which shouldn't vary after the object is created.
-   * @private  {Ui}
+   * @private {Ui}
    */
   var ui_ = SpreadsheetApp.getUi();
   /**
    * Stores references to common UI buttons, so I don't have to look them up at runtime.
-   * @private  {Button}
+   * @private {Button}
    */
   var ok = ui_.Button.OK;
   var yes = ui_.Button.YES;
   /**
    * Stores references to common UI button sets, so I don't have to look them up at runtime.
-   * @private  {ButtonSet}
+   * @private {ButtonSet}
    */
   var okCancel = ui_.ButtonSet.OK_CANCEL;
   var yesNo = ui_.ButtonSet.YES_NO;
@@ -502,20 +506,20 @@ function Exposify() {
   /**
    * Return the active Spreadsheet object.
    * @protected
-   * @return  {Spreadsheet} spreadsheet_ - A Google Apps Spreadsheet object.
+   * @return {Spreadsheet} spreadsheet_ - A Google Apps Spreadsheet object.
    */
   this.getSpreadsheet = function() { return spreadsheet_; };
   /**
    * Return the Ui object for this spreadsheet.
    * @protected
-   * @return  {Ui} ui_ - The Ui object for the Spreadsheet object to which Exposify is attached.
+   * @return {Ui} ui_ - The Ui object for the Spreadsheet object to which Exposify is attached.
    */
   this.getUi = function() { return ui_; };
   /**
    * Set the default time zone for the spreadsheet. Return the spreadsheet for chaining.
    * @protected
-   * @param  {string} timezone - A string representing a timezone in "long" format, as listed by Joda.org
-   * @return  {Spreadsheet} spreadsheet_ - The Spreadsheet object to which Exposify is attached.
+   * @param {string} timezone - A string representing a timezone in "long" format, as listed by Joda.org
+   * @return {Spreadsheet} spreadsheet_ - The Spreadsheet object to which Exposify is attached.
    */
   this.setTimezone = function(timezone) {
     spreadsheet_.setSpreadsheetTimeZone(timezone);
@@ -524,16 +528,24 @@ function Exposify() {
   /**
    * Display a dialog box to the user.
    * @protected
-   * @param  {HtmlOutput} htmlDialog - The sanitized html to display as a dialog box to the user.
-   * @param  {string} title - The title of the dialog box.
+   * @param {HtmlOutput} htmlDialog - The sanitized html to display as a dialog box to the user.
+   * @param {string} title - The title of the dialog box.
    */
   this.showModalDialog = function(htmlDialog, title) {
     ui_.showModalDialog(htmlDialog, title);
   };
+  /**
+   * Display a sidebar to the user.
+   * @protected
+   * @param {HtmlOutput} htmlSidebar - The sanitized html to display as a sidebar to the user.
+   */
+  this.showSidebar = function(htmlSidebar) {
+    ui_.showSidebar(htmlSidebar);
+  };
   // Protected properties
   /**
    * This is a simple interface for accessing the built-in UI alert controls.
-   * @protected  {Object}
+   * @protected {Object}
    */
   this.alertUi = {
     ok: ok,
@@ -556,19 +568,19 @@ function Exposify() {
  * a confirmation alert and HTML dialog box and displays them to the user. The object literals contain
  * the alert message to display first as a confirmation, followed by the details of the dialog box.
  */
-function exposifySetupNewGradebook() { expos.executeMenuCommand.call(expos, SETUP_NEW_GRADEBOOK); }
-function exposifySetupAddStudents() { expos.executeMenuCommand.call(expos, SETUP_ADD_STUDENTS); }
+function exposifySetupNewGradebook() { expos.executeMenuCommand.call(expos, DIALOG_SETUP_NEW_GRADEBOOK); }
+function exposifySetupAddStudents() { expos.executeMenuCommand.call(expos, DIALOG_SETUP_ADD_STUDENTS); }
+function exposifyAssignmentsCalcWordCounts() { return expos.executeMenuCommand.call(expos, {command: 'assignmentsCalcWordCounts'}); }
+function exposifyFormatSwitchStudentNames() { return expos.executeMenuCommand.call(expos, {command: 'formatSwitchStudentNames'}); }
+function exposifyFormatSetShadedRows() { return expos.executeMenuCommand.call(expos, {command: 'formatSetShadedRows'}); }
+function exposifyHelp() { return expos.executeMenuCommand.call(expos, {command: 'help'}); }
 
 // old functions to be replaced
 function exposifySetupCreateFolderStructure() { return expos.setupCreateFolderStructure(); }
 function exposifySetupSharedFolders() { return expos.setupSharedFolders(); }
 function exposifyAssignmentsCopy() { return expos.assignmentsCopy(); }
 function exposifyAssignmentsReturn() { return expos.assignmentsReturn(); }
-function exposifyAssignmentsCalcWordCounts() { return expos.assignmentsCalcWordCounts(); }
 function exposifyAssignmentsCompareDrafts() { return expos.assignmentsCompareDrafts(); }
-function exposifyFormatSwitchStudentNames() { return expos.formatSwitchStudentNames(); }
-function exposifyFormatSetShadedRows() { return expos.formatSetShadedRows(); }
-function exposifyHelp() { return expos.help(); }
 
 
 // CALLBACKS
@@ -594,10 +606,10 @@ function getOAuthToken() { return expos.getOAuthToken(); }
  * and one containing the message to be displayed to the user. The available alert types are OK, OK_CANCEL,
  * and YES_NO. These are defined as constart values. This function returns another function, which can be
  * executed to display the dialog box, i.e. with {@code alert(confirmation)();}.
- * @param  {Object} confirmation - The object holding the arguments to the function.
- * @param  {string} confirmation.string - Alert type of the alert dialog, which determines the buttons to display.
- * @param  {string} confirmation.msg - The message to display in the alert dialog.
- * @return  {Function} alertFunction - A function that can be executed to display the alert.
+ * @param {Object} confirmation - The object holding the arguments to the function.
+ * @param {string} confirmation.string - Alert type of the alert dialog, which determines the buttons to display.
+ * @param {string} confirmation.msg - The message to display in the alert dialog.
+ * @return {Function} alertFunction - A function that can be executed to display the alert.
  */
 Exposify.prototype.alert = function(confirmation) {
   try {
@@ -617,12 +629,12 @@ Exposify.prototype.alert = function(confirmation) {
 /**
  * Create a dialog box to display to the user using information stored as a template an object literal
  * constant. The html field of the argument object should be an HTML file.
- * @param  {Object} dialog - The template containing the specification of the dialog box.
- * @param  {string} dialog.title - The title of the dialog box to display.
- * @param  {string} dialog.html - The html file to process and display as the dialog box content.
- * @param  {number} dialog.width - The width of the dialog box.
- * @param  {number} dialog.height - The height of the dialog box.
- * @return  {HtmlOutput} htmlDialog - The sanitized html dialog box, ready to be displayed to the user.
+ * @param {Object} dialog - The template containing the specification of the dialog box.
+ * @param {string} dialog.title - The title of the dialog box to display.
+ * @param {string} dialog.html - The html file to process and display as the dialog box content.
+ * @param {number} dialog.width - The width of the dialog box.
+ * @param {number} dialog.height - The height of the dialog box.
+ * @return {HtmlOutput} htmlDialog - The sanitized html dialog box, ready to be displayed to the user.
  */
 Exposify.prototype.createHtmlDialog = function(dialog) {
   try {
@@ -639,8 +651,8 @@ Exposify.prototype.createHtmlDialog = function(dialog) {
 
 /**
  * Insert student names into the spreadsheet.
- * @param  {Array} students - A list of Student objects containing the data to add to the spreadsheet.
- * @param  {Sheet} sheet - A Google Apps Sheet object, the sheet to which names will be added.
+ * @param {Array} students - A list of Student objects containing the data to add to the spreadsheet.
+ * @param {Sheet} sheet - A Google Apps Sheet object, the sheet to which names will be added.
  */
 Exposify.prototype.doAddStudents(students, sheet) {
   try {
@@ -650,17 +662,15 @@ Exposify.prototype.doAddStudents(students, sheet) {
     var range = sheet.getRange(4, 1, students.length, 2); // get a range of two columns and a number of rows equal to the number of students to insert
     students.forEach( function(student) { studentList.push([student.name, student.netid]); } ); // add a row to the temporary studentList array for each student
     range.setValues(studentList); // set the value of the whole range at once, so I don't call the API more than necessary
-  } catch(e) {
-    this.logError('Exposify.prototype.doAddStudents', e);
-  }
+  } catch(e) { this.logError('Exposify.prototype.doAddStudents', e); }
 } // end Exposify.prototype.doAddStudents
 
 
 /**
  * Format a spreadsheet sheet for use as a gradebook for a specified course.
- * @param  {Object} newCourse - Information about the new course on which to base the formatting.
- * @param  {Course} newCourse.course - The course information requested from the user.
- * @param  {Sheet} newCourse.sheet - The sheet to format.
+ * @param {Object} newCourse - Information about the new course on which to base the formatting.
+ * @param {Course} newCourse.course - The course information requested from the user.
+ * @param {Sheet} newCourse.sheet - The sheet to format.
  */
  Exposify.prototype.doFormatSheet = function(newCourse) {
   var course = newCourse.course;
@@ -725,16 +735,14 @@ Exposify.prototype.doAddStudents(students, sheet) {
     }
     this.doSetShadedRows(sheet); // set alternating color of student rows
     sheet.setName(course.numberSection); // name sheet with section number
-  } catch(e) {
-    this.logError('Exposify.prototype.doFormatSheet', e);
-  }
+  } catch(e) { this.logError('Exposify.prototype.doFormatSheet', e); }
 } // end Exposify.prototype.doFormatSheet
 
 
 /**
  * Add an attendance record to a newly formatted gradebook.
- * @param  {Course} course - A Course object containing formatting information for the course.
- * @param  {Sheet} sheet - The Google Apps Sheet object to format.
+ * @param {Course} course - A Course object containing formatting information for the course.
+ * @param {Sheet} sheet - The Google Apps Sheet object to format.
  */
 Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
   try {
@@ -767,16 +775,14 @@ Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
     attendanceRange.setValues([schedule]); // set titles, this call does the important work
     mergeTitleRange.merge(); // merge title cells
     shadedRange.setBackground(COLOR_SHADED); // set background color of top rows
-  } catch(e) {
-    this.logError('Exposify.prototype.doFormatSheetAddAttendanceRecord', e);
-  }
+  } catch(e) { this.logError('Exposify.prototype.doFormatSheetAddAttendanceRecord', e); }
 } // end Exposify.prototype.doFormatSheetAddAttendanceRecord
 
 
 /**
  * Make Google Apps Data Validation objects for applying grade validation to a new gradebook.
- * @param  {number} courseNumber - The course number, used to pull data from the course template object literal.
- * @return  {GradeValidationSet} gradeValidations - The grade validations to apply and the ranges to apply them to.
+ * @param {number} courseNumber - The course number, used to pull data from the course template object literal.
+ * @return {GradeValidationSet} gradeValidations - The grade validations to apply and the ranges to apply them to.
  */
 Exposify.prototype.doMakeGradeValidations = function(courseNumber) {
   try {
@@ -808,19 +814,17 @@ Exposify.prototype.doMakeGradeValidations = function(courseNumber) {
       }
       return gradeValidations; // neat and tidy package
     }
-  } catch(e) {
-    this.logError('Exposify.prototype.doMakeGradeValidations', e);
-  }
+  } catch(e) { this.logError('Exposify.prototype.doMakeGradeValidations', e); }
 } // end Exposify.prototype.doMakeGradeValidations
 
 
 /**
  * Calculate a schedule for a course, which is complicated so I don't know if it will always be 100% accurate but probably good enough.
  * I am going to burn in hell for writing this function.
- * @param  {Date} semesterBeginsDate - The first day of the semester.
- * @param  {Array} meetingDays - A list of the days of the week when the course normally meets.
- * @param  {number} meetingWeeks - The number of weeks for which a course meets (default is 15).
- * @return  {Array} daysToMeet - A list of text dates to be inserted into the spreadsheet.
+ * @param {Date} semesterBeginsDate - The first day of the semester.
+ * @param {Array} meetingDays - A list of the days of the week when the course normally meets.
+ * @param {number} meetingWeeks - The number of weeks for which a course meets (default is 15).
+ * @return {Array} daysToMeet - A list of text dates to be inserted into the spreadsheet.
  */
 Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, meetingWeeks) {
   try {
@@ -871,9 +875,7 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
       }
     }
     return daysToMeet; // an array of text dates ready to be inserted directly into the spreadsheet
-  } catch(e) {
-    this.logError('Exposify.prototype.doMakeSchedule', e);
-  }
+  } catch(e) { this.logError('Exposify.prototype.doMakeSchedule', e); }
 } // end Exposify.prototype.doMakeSchedule
 
 
@@ -882,9 +884,9 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
  * from the Site Info page of a Sakai course site. This function will only work if that file has been unmodified.
  * This function works whether or not the file has been converted from csv (comma separated values) format
  * into Google Sheets format. Returns an array of Student objects with which to populate the spreadsheet gradebook.
- * @param  {string} id - The id of the Google Apps File object to open.
- * @param  {string} mimeType - The mimeType of the Google Apps File object to open.
- * @return  {Array} students - A list of Student objects, the students to add to the gradebook.
+ * @param {string} id - The id of the Google Apps File object to open.
+ * @param {string} mimeType - The mimeType of the Google Apps File object to open.
+ * @return {Array} students - A list of Student objects, the students to add to the gradebook.
  */
 Exposify.prototype.doParseSpreadsheet = function(id, mimeType) {
   try {
@@ -910,16 +912,14 @@ Exposify.prototype.doParseSpreadsheet = function(id, mimeType) {
       }
     }
     return students;
-  } catch(e) {
-    this.logError('Exposify.prototype.doParseSpreadsheet', e);
-  }
+  } catch(e) { this.logError('Exposify.prototype.doParseSpreadsheet', e); }
 } // end Exposify.prototype.doParseSpreadsheet
 
 
 /**
  * Set formulas for automatically calculating final grades in gradebooks that require it.
- * @param  {Sheet} sheet - The Google Apps Sheet object to modify.
- * @param  {number} courseNumber - The course number, used to pull data from the course template object literal.
+ * @param {Sheet} sheet - The Google Apps Sheet object to modify.
+ * @param {number} courseNumber - The course number, used to pull data from the course template object literal.
  */
 Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
   try {
@@ -931,15 +931,13 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
       formulas.push([formula.replace('$', i, 'g')]); // substitle '$' wildcard with the appropriate row number for each cell to which we are applying the final grade formula
     }
     calcRange.setFormulas(formulas); // apply the formulas to the Range object
-  } catch(e) {
-    this.logError('Exposify.prototype.doSetFormulas', e);
-  }
+  } catch(e) { this.logError('Exposify.prototype.doSetFormulas', e); }
 } // end Exposify.prototype.doFormatSheetSpecialRules
 
 
 /**
  * Make the gradebook easier to read by setting alternating shaded and unshaded rows.
- * @param  {Sheet} sheet - The Google Apps Sheet object with the gradebook to modify.
+ * @param {Sheet} sheet - The Google Apps Sheet object with the gradebook to modify.
  */
  Exposify.prototype.doSetShadedRows(sheet) {
   try {
@@ -960,15 +958,13 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
       i % 2 === 0 ? newRows.push(blankRow) : newRows.push(shadedRow); // generate array of alternating shaded and blank rows so I only have to call setBackgrounds once
     }
     shadedRange.setBackgrounds(newRows); // set row backgrounds
-  } catch(e) {
-    this.logError('Exposify.prototype.doSetShadedRows', e);
-  }
+  } catch(e) { this.logError('Exposify.prototype.doSetShadedRows', e); }
 } // end Exposify.prototype.doSetShadedRows
 
 
 /**
  * Switch student name order from last name first to first name last or vice versa.
- * @param  {Sheet} sheet - The Google Apps Sheet object with the gradebook to modify.
+ * @param {Sheet} sheet - The Google Apps Sheet object with the gradebook to modify.
  */
 Exposify.prototype.doSwitchStudentNames(sheet) {
   try {
@@ -984,28 +980,38 @@ Exposify.prototype.doSwitchStudentNames(sheet) {
     this.doAddStudents(students, sheet); // repopulate the sheet with the student names
     sheet.sort(1); // sort sheet alphabetically
     this.doSetShadedRows(sheet); // because the sort will probably mess them up
-  } catch(e) {
-    this.logError('Exposify.prototype.doSwitchStudentNames', e);
-  }
+  } catch(e) { this.logError('Exposify.prototype.doSwitchStudentNames', e); }
 } // end Exposify.prototype.doSwitchStudentNames
 
 
 /**
- * Executes a menu command selected by the user, first displaying an alert and then an
+ * Execute a menu command selected by the user, first displaying an alert and then an
  * HTML dialog box, both provided as arguments and based on object literal constants.
- * @param  {{alert: object, dialog: object}}
+ * @param {Object} params - The parameters passed to the function.
+ * @param {Object=} alert - An optional alert to display before the command is executed.
+ * @param {Object=} dialog - An optional dialog box to display to collect user input.
+ * @param {string=} error_msg - An optional error message to display if something goes wrong.
  */
 Exposify.prototype.executeMenuCommand = function(params) {
   try {
-    if (params.hasOwnProperty('dialog')) {
+    if (params.hasOwnProperty('alert')) { // show the alert, if there is one
       var alert = this.alert(params.alert);
+      var response = alert();
+    }
+    if (params.hasOwnProperty('dialog') && response) { // show the dialog, if there is one, and if the alert response is true
       var dialog = params.dialog;
-      if (alert()) {
-        var htmlDialog = this.createHtmlDialog(dialog);
-        this.showModalDialog(htmlDialog, dialog.title); // to limit the number of times I reference Ui
-      }
-    } else {
-      // something
+      var htmlDialog = this.createHtmlDialog(dialog); // "sanitize" the HTML so Google will display it
+      this.showModalDialog(htmlDialog, dialog.title); // to limit the number of times I reference Ui
+    }
+    if (params.hasOwnProperty('command')) { // execute whatever other command the user is requesting, if no alert or dialog is needed
+      var commands = {
+        assignmentsCalcWordCounts: function() { this.showHtmlSidebar(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS); },
+        formatSwitchStudentNames: function() {},
+        formatSetShadedRows: function() {},
+        help: function() { this.showHtmlSidebar(SIDEBAR_HELP); }
+      };
+      var command = commands[params.command];
+      command();
     }
   } catch(e) {
     if (params.hasOwnProperty('error_msg')) {
@@ -1018,7 +1024,7 @@ Exposify.prototype.executeMenuCommand = function(params) {
 
 /**
  * Get the Sheet object that represents the sheet the user is currently working with.
- * @return  {Sheet}
+ * @return {Sheet}
  */
 Exposify.prototype.getActiveSheet = function() {
   return this.getSpreadsheet().getActiveSheet();
@@ -1027,19 +1033,30 @@ Exposify.prototype.getActiveSheet = function() {
 
 /**
  * Get the Spreadsheet object that represents the spreadsheet to which Exposify is attached.
- * @return  {Spreadsheet}
+ * @return {Spreadsheet}
  */
 Exposify.prototype.getActiveSpreadsheet = function() {
   return this.getSpreadsheet();
 }; // end Exposify.prototype.getActiveSpreadsheet
 
 
+/**
+ * Determine whether this year uses a different schedule, only if September 1 falls on a Tuesday.
+ * @param {number} year - The year to check.
+ * @return {boolean}
+ */
 Exposify.prototype.getAlternateDesignationYearStatus = function(year) { // change in designation days are different if September 1 is a Tuesday (see http://senate.rutgers.edu/RLBAckS1003AAcademicCalendarPart2.pdf)
   var firstDayOfSeptember = (new Date(year, 8, 1)).getDay();
   return firstDayOfSeptember === 2 ? true : false; // return true if the first day of September of the year being checked is a Tuesday and false otherwise
 } // end Exposify.prototype.getAlternateDesignationYearStatus
 
-// Parse a Course object into a new data object for use in creating a schedule for an attendance sheet, mostly by calculating the date the course begins, a complicated enough operation that I refactored it into a separate function
+
+/**
+ * Parse a Course object into a new data object for use in creating a schedule for an attendance sheet,
+ * mostly by calculating the date the course begins—a complicated enough operation that I refactored it
+ * into a separate function.
+ * @param {Course} course - The Course object to analyze.
+ */
 Exposify.prototype.getCourseData = function(course) {
   try {
     var semester = course.semester; // the semester string, i.e. 'Fall 2015'
@@ -1092,6 +1109,11 @@ Exposify.prototype.getCourseData = function(course) {
 } // end Exposify.prototype.getCourseData
 
 
+/**
+ * Return the name of the course for a given gradebook.
+ * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve the course name.
+ * @return {string} courseTitle - The name of the course, with section number appended.
+ */
 Exposify.prototype.getCourseTitle = function(sheet) {
   var title = sheet.getRange('A1').getValue(); // the name of the course, from the gradebook
   var courseTitle = title.replace(/(\s\d+)?:/, ' '); // string manipulation to get a folder name friendly version of the course name and section code
@@ -1102,7 +1124,7 @@ Exposify.prototype.getCourseTitle = function(sheet) {
 /**
  * Get the API key for this script for use in client side HTML. The key is stored as a script property,
  * because we don't want end users to be able to see it.
- * @return {string}
+ * @return {string} key - The API key for this app.
  */
 Exposify.prototype.getDeveloperKey = function() {
   var key = PropertiesService.getScriptProperties().getProperty('DEVELOPER_KEY');
@@ -1110,6 +1132,11 @@ Exposify.prototype.getDeveloperKey = function() {
 } // end Exposify.prototype.getDeveloperKey
 
 
+/**
+ * Return the day on which Spring Break begins for a given year.
+ * @param {number} year - The year to check.
+ * @return {number}
+ */
 Exposify.prototype.getFirstDayOfSpringBreak = function(year) {
   var firstDayOfMarch = new Date(year, 3, 1).getDay();
   return firstDayOfMarch + (6 - firstDayOfMarch) + 7; // Spring Break starts the second Saturday of March, so find out the first day of March, add days to get to Saturday, and add 7 to that
@@ -1118,8 +1145,8 @@ Exposify.prototype.getFirstDayOfSpringBreak = function(year) {
 
 /**
  * Sanitize HTML text and return an HtmlOutput object that can be displayed to the user.
- * @param  {string}
- * @return {HtmlOutput}
+ * @param {string} html - The HTML to sanitize.
+ * @return {HtmlOutput} output - The sanitized HTML object.
  */
 Exposify.prototype.getHtmlOutput = function(html) {
   try {
@@ -1134,12 +1161,12 @@ Exposify.prototype.getHtmlOutput = function(html) {
 /**
  * Sanitize HTML from a file and return an HtmlOutput object that can be displayed to the user.
  * It is probably possible to generalize these two functions.
- * @param {string}
- * @return {HtmlOutput}
+ * @param {string} filename - The name of the HTML file to sanitize.
+ * @return {HtmlOutput} output - The sanitized HTML object.
  */
-Exposify.prototype.getHtmlOutputFromFile = function(file) {
+Exposify.prototype.getHtmlOutputFromFile = function(filename) {
   try {
-    var output = HtmlService.createHtmlOutputFromFile(file)
+    var output = HtmlService.createHtmlOutputFromFile(filename)
       .setSandboxMode(HtmlService
       .SandboxMode.IFRAME);
     return output;
@@ -1196,7 +1223,7 @@ Exposify.prototype.getSemesterYearString = function(semester) {
 
 /**
  * Retrieve student data from the gradebook and convert it into an array of Student objects.
- * @param  {Sheet} sheet - The Google Apps Sheet object from which to retrieve student data.
+ * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve student data.
  * @return {Array} students - A list of Student objects containing student names and email addresses.
  */
 Exposify.prototype.getStudents(sheet) {
@@ -1211,25 +1238,25 @@ Exposify.prototype.getStudents(sheet) {
       }
     });
     return students;
-  } catch(e) {
-    this.logError('Exposify.prototype.getStudents', e);
-  }
+  } catch(e) { this.logError('Exposify.prototype.getStudents', e); }
 } // end Exposify.prototype.getStudents
 
 
 /**
  * Retrieve student names from the gradebook, in first name first order.
- * @param  {Sheet} sheet - The Google Apps Sheet object from which to retrieve student data.
- * @return  {Array} studentNames - A list of student names.
+ * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve student data.
+ * @return {Array} studentNames - A list of student names.
  */
 Exposify.prototype.getStudentNames = function(sheet) {
-  var students = this.getStudents(sheet);
-  var studentNames = [];
-  students.forEach( function(student) {
-    var studentName = student.name.match(/.+,.+/) ? this.getNameFirstLast(student.name) : student.name;
-    studentNames.push(studentName);
-  });
-  return studentNames;
+  try {
+				var students = this.getStudents(sheet);
+				var studentNames = [];
+				students.forEach( function(student) {
+						var studentName = student.name.match(/.+,.+/) ? this.getNameFirstLast(student.name) : student.name;
+						studentNames.push(studentName);
+				});
+				return studentNames;
+		} catch(e) { this.logError('Exposify.prototype.getStudentNames', e); }
 } // end Exposify.prototype.getStudentNames
 
 
@@ -1302,8 +1329,8 @@ Exposify.prototype.logInstall = function() {
  * Creates an alert dialog box to be displayed to the user. The alert is comprised of an alert type, which should be
  * OK, OK_CANCEL, or YES_NO, and a message to print in the dialog box. The alert types are constant values. This
  * function returns aanother function that can be executed to display the dialog box.
- * @param  {alertType: string, msg: string}
- * @return  {Function}
+ * @param {alertType: string, msg: string}
+ * @return {Function}
  */
 Exposify.prototype.makeAlert = function(alertType, msg) {
   try {
@@ -1333,9 +1360,7 @@ Exposify.prototype.setGradeValidations = function(sheet, gradeValidations) {
     gradeValidations.ranges.forEach(function(rangeList, index) {
       rangeList.forEach(function(range) { sheet.getRange(range).setDataValidation(gradeValidations.validations[index]); }); // set data validations
     });
-  } catch(e) {
-    this.logError('Exposify.prototype.setGradeValidations', e);
-  }
+  } catch(e) { this.logError('Exposify.prototype.setGradeValidations', e); }
 } // end Exposify.prototype.setGradeValidations
 
 
@@ -1375,7 +1400,7 @@ Exposify.prototype.setupAddStudents = function(id) {
 
 /**
  * Converts user input, collected from a dialog box, into a newly formatted gradebook.
- * @param  {{course: string, section: string, semester: string, meetingDays: array}}
+ * @param {{course: string, section: string, semester: string, meetingDays: array}}
  */
 Exposify.prototype.setupNewGradebook = function(courseInfo) {
   var spreadsheet = this.getActiveSpreadsheet();
@@ -1396,6 +1421,22 @@ Exposify.prototype.setupNewGradebook = function(courseInfo) {
     this.logError('Exposify.prototype.setupNewGradebook', e);
   }
 } // end Exposify.prototype.setupNewGradebook
+
+
+/**
+ * Display a sidebar to the user.
+ * @param {Object} sidebar - An object literal constant containing data for building the sidebar.
+ */
+Exposify.prototype.showHtmlSidebar = function(sidebar) {
+  try {
+    var stylesheet = this.getHtmlOutputFromFile(STYLESHEET);
+    var body = this.getHtmlOutputFromFile(sidebar.html).getContent(); // Sanitize the HTML file
+    var page = stylesheet.append(body).getContent(); // Combine the style sheet with the body
+    var htmlSidebar = this.getHtmlOutput(page)
+      .setTitle(sidebar.title);
+    this.showSidebar(htmlSidebar);
+  } catch(e) { this.logError('Exposify.prototype.showHtmlSidebar', e); }
+} // end Exposify.prototype.showHtmlSidebar
 
 
 // FOLDERSTRUCTURE FUNCTIONS
@@ -1671,13 +1712,6 @@ function assignmentsCopy() {
 function assignmentsReturn() {
 }
 
-function assignmentsCalcWordCounts() { // could probably implement caching for this one
-  var html = HtmlService.createHtmlOutputFromFile('assignmentsCalcWordCounts.html')
-        .setTitle(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS_TITLE)
-        .setSandboxMode(HtmlService.SandboxMode.IFRAME);
-      SpreadsheetApp.getUi().showSidebar(html);
-}
-
 function assignmentsCalcWordCountsCallback(params) {
   var sheet = activeSheet();
   var students = params.students;
@@ -1802,12 +1836,7 @@ function formatSetShadedRows() {
 // Help
 
 // Brings up the help document in the sidebar. The width of the sidebar is fixed at 300 px. It can't be changed.
-function help() {
-  var html = HtmlService.createHtmlOutputFromFile(HELP_HTML)
-    .setTitle(SIDEBAR_HELP_TITLE)
-    .setSandboxMode(HtmlService.SandboxMode.IFRAME);
-  SpreadsheetApp.getUi().showSidebar(html);
-}
+
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
