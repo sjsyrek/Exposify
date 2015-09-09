@@ -928,12 +928,15 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
 Exposify.prototype.doParseSpreadsheet = function(id, mimeType) {
   try {
     var students = [];
+    var sheet = this.getActiveSheet();
+    var section = this.getSectionTitle(sheet);
     if (mimeType === 'application/vnd.google-apps.spreadsheet') {
       var file = SpreadsheetApp.openById(id); // open file to retrieve data
       var page = file.getSheets()[0];
       var range = page.getRange('A2:F24').getValues();
       for (row = 0; row < 23; row++) {
-        if (range[row][0] && range[row][4] === 'Student') {
+        var fileSection = range[row][2].substr(18, 2); // extract section from course code
+        if (range[row][0] && range[row][4] === 'Student' && fileSection === section) {
           students.push(new Student(range[row][0], range[row][1])); // create list of Student objects from spreadsheet
         }
       }
@@ -943,7 +946,8 @@ Exposify.prototype.doParseSpreadsheet = function(id, mimeType) {
       var csv = Utilities.parseCsv(data);
       var length = csv.length;
       for (row = 1; row < length; row++) {
-        if (csv[row][0] && csv[row][4] === 'Student') {
+        var fileSection = csv[row][2].substr(18, 2); // extract section from course code
+        if (csv[row][0] && csv[row][4] === 'Student' && fileSecton === section) {
           students.push(new Student(csv[row][0], csv[row][1])); // create list of Student objects from csv file
         }
       }
@@ -1148,13 +1152,30 @@ Exposify.prototype.getCourseData = function(course) {
 
 /**
  * Return the name of the course for a given gradebook.
+ * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve the course section.
+ * @return {string} courseSection - The section of the course.
+ */
+Exposify.prototype.getSectionTitle = function(sheet) {
+  try {
+    var title = sheet.getRange('A1').getValue(); // the name of the course, from the gradebook
+    var re = /.+:/;
+    var courseSection = title.replace(re, '');
+    return courseSection;
+  } catch(e) { this.logError('Exposify.prototype.getSectionTitle', e); }
+} // Exposify.prototype.getSectionTitle
+
+
+/**
+ * Return the name of the course for a given gradebook.
  * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve the course name.
  * @return {string} courseTitle - The name of the course, with section number appended.
  */
 Exposify.prototype.getCourseTitle = function(sheet) {
-  var title = sheet.getRange('A1').getValue(); // the name of the course, from the gradebook
-  var courseTitle = title.replace(/(\s\d+)?:/, ' '); // string manipulation to get a folder name friendly version of the course name and section code
-  return courseTitle;
+  try {
+    var title = sheet.getRange('A1').getValue(); // the name of the course, from the gradebook
+    var courseTitle = title.replace(/(\s\d+)?:/, ' '); // string manipulation to get a folder name friendly version of the course name and section code
+    return courseTitle;
+  } catch(e) { this.logError('Exposify.prototype.getCourseTitle', e); }
 } // Exposify.prototype.getCourseTitle
 
 
@@ -1164,8 +1185,10 @@ Exposify.prototype.getCourseTitle = function(sheet) {
  * @return {string} key - The API key for this app.
  */
 Exposify.prototype.getDeveloperKey = function() {
-  var key = PropertiesService.getScriptProperties().getProperty('DEVELOPER_KEY');
-  return key;
+  try {
+    var key = PropertiesService.getScriptProperties().getProperty('DEVELOPER_KEY');
+    return key;
+  } catch(e) { this.logError('Exposify.prototype.getDeveloperKey', e); }
 } // end Exposify.prototype.getDeveloperKey
 
 
