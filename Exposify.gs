@@ -587,8 +587,8 @@ function Exposify() {
 function exposifySetupNewGradebook() { expos.executeMenuCommand.call(expos, DIALOG_SETUP_NEW_GRADEBOOK); }
 function exposifySetupAddStudents() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_ADD_STUDENTS); }
 function exposifyAssignmentsCalcWordCounts() { return expos.checkSheetStatus.call(expos, {command: 'assignmentsCalcWordCounts'}); }
-function exposifyFormatSwitchStudentNames() { return expos.checkSheetStatus.call(expos, {command: 'formatSwitchStudentNames'}); }
-function exposifyFormatSetShadedRows() { return expos.checkSheetStatus.call(expos, {command: 'formatSetShadedRows'}); }
+function exposifyFormatSwitchStudentNames() { return expos.checkSheetStatus.call(expos, {command: 'formatSwitchStudentNames', error_msg: ERROR_FORMAT_SWITCH_STUDENT_NAMES}); }
+function exposifyFormatSetShadedRows() { return expos.checkSheetStatus.call(expos, {command: 'formatSetShadedRows', error_msg: ERROR_FORMAT_SET_SHADED_ROWS}); }
 function exposifyHelp() { return expos.executeMenuCommand.call(expos, {command: 'help'}); }
 
 // old functions to be replaced
@@ -1048,8 +1048,8 @@ Exposify.prototype.executeMenuCommand = function(params) {
     if (params.hasOwnProperty('command')) { // execute whatever other command the user is requesting, if no alert or dialog is needed
       var commands = {
         assignmentsCalcWordCounts: function() { this.showHtmlSidebar(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS); },
-        formatSwitchStudentNames: function() {},
-        formatSetShadedRows: function() {},
+        formatSwitchStudentNames: function() { this.doSwitchStudentNames(this.getActiveSheet()); },
+        formatSetShadedRows: function() { this.doSetShadedRows(this.getActiveSheet()); },
         help: function() { this.showHtmlSidebar(SIDEBAR_HELP); }
       };
       var command = commands[params.command];
@@ -1952,30 +1952,6 @@ function getCourseFolder(sheet) {
   return folderIter.hasNext() ? folderIter.next() : null;
 }
 
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Format functions
-
-// Switch between last name first and first name first formats for student names. Personal preference.
-function formatSwitchStudentNames() {
-  try {
-    var sheet = activeSheet();
-    doSwitchStudentNames(sheet);
-  } catch(e) {
-    ui.alert(ERROR_FORMAT_SWITCH_STUDENT_NAMES);
-    logError('switchStudentNames', e);
-  }
-}
-
-// Sometimes the alternating row shadings get messed up. This fixes them.
-function formatSetShadedRows() {
-  try {
-    var sheet = activeSheet();
-    doSetShadedRows(sheet);
-  } catch(e) {
-    ui.alert(ERROR_FORMAT_SET_SHADED_ROWS);
-    logError('setShadedRows', e);
-    }
-}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
