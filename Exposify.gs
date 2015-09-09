@@ -869,11 +869,11 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
     var month = semesterBeginsDate.getMonth();
     var year = semesterBeginsDate.getFullYear();
     var firstDayOfClass = semesterBeginsDate.getDate();
-    var lastDay = getLastDayOfMonth(month, year);
+    var lastDay = this.getLastDayOfMonth(month, year);
     var daysToMeet = [];
-    var firstDayOfSpringBreak = getFirstDayOfSpringBreak(year); // get first day of Spring Break, so we don't include dates for that week
-    var tuesdayOfThanksgivingWeek = getTuesdayOfThanksgivingWeek(year); // get Tuesday of Thanksgiving week, so we can take change of day designations into account
-    var alternateDesignationYear = getAlternateDesignationYearStatus(year); // except on some years, when 9/1 is a Tuesday, the designation days are different
+    var firstDayOfSpringBreak = this.getFirstDayOfSpringBreak(year); // get first day of Spring Break, so we don't include dates for that week
+    var tuesdayOfThanksgivingWeek = this.getTuesdayOfThanksgivingWeek(year); // get Tuesday of Thanksgiving week, so we can take change of day designations into account
+    var alternateDesignationYear = this.getAlternateDesignationYearStatus(year); // except on some years, when 9/1 is a Tuesday, the designation days are different
     for (day = firstDayOfClass, week = 1; day < lastDay + 1 && week < meetingWeeks + 1; day += 1) { // check every single day in the semester to see if it belongs in the course schedule
       if (month === 2 && day === firstDayOfSpringBreak) { // if the day we're checking is the first day of Spring Break, just skip 9 days
         day += 9;
@@ -895,7 +895,7 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
           if (day > 30) { // make sure we didn't go over 30 days for November by skipping 4 days at the end of the month
             day = day - 30;
             month += 1;
-            lastDay = getLastDayOfMonth(month, year);
+            lastDay = this.getLastDayOfMonth(month, year);
           }
         }
       }
@@ -905,7 +905,7 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
       if (day === lastDay) { // if we're at the last day of the month, reset the day counter to 0, increase the month counter, and calculate the last day of the new month
         day = 0;
         month += 1;
-        lastDay = getLastDayOfMonth(month, year);
+        lastDay = this.getLastDayOfMonth(month, year);
       }
       if (dayToCheck === 6) { // if the day we're checking is Saturday, increment the week counter
         week += 1;
