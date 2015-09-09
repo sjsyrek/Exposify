@@ -737,10 +737,10 @@ Exposify.prototype.doAddStudents = function (students, sheet) {
     sheet.setFrozenRows(0); // make sure only the correct rows and columns are frozen when formatting is complete
     sheet.setFrozenColumns(0);
     fullRange.breakApart(); // break apart any merged cells
-    for (i = 1; i <= lastRow; i++) { // set row heights
+    for (i = 1; i <= lastRow; i += 1) { // set row heights
       sheet.setRowHeight(i, rows[i-1]);
     }
-    for (i = 1; i <= lastColumn; i++) { // set column widths
+    for (i = 1; i <= lastColumn; i += 1) { // set column widths
       sheet.setColumnWidth(i, columns[i-1]);
     }
     fullRange.setFontFamily([FONT]); // set font
@@ -801,7 +801,7 @@ Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
     var shadedRange = sheet.getRange(1, begin, 3, width); // we need to add alternate row shading for the attendance sheet, too
     var lastRow = course.rows.length;
     var borderRange = sheet.getRange(1, begin, lastRow, width); // and add borders
-    for (i = begin; i <= end; i++) { // set column widths
+    for (i = begin; i <= end; i += 1) { // set column widths
       sheet.setColumnWidth(i, ATTENDANCE_SHEET_COLUMN_WIDTH);
     }
     attendanceRange.setFontFamily([FONT]); // set font
@@ -874,7 +874,7 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
     var firstDayOfSpringBreak = getFirstDayOfSpringBreak(year); // get first day of Spring Break, so we don't include dates for that week
     var tuesdayOfThanksgivingWeek = getTuesdayOfThanksgivingWeek(year); // get Tuesday of Thanksgiving week, so we can take change of day designations into account
     var alternateDesignationYear = getAlternateDesignationYearStatus(year); // except on some years, when 9/1 is a Tuesday, the designation days are different
-    for (day = firstDayOfClass, week = 1; day < lastDay + 1 && week < meetingWeeks + 1; day++) { // check every single day in the semester to see if it belongs in the course schedule
+    for (day = firstDayOfClass, week = 1; day < lastDay + 1 && week < meetingWeeks + 1; day += 1) { // check every single day in the semester to see if it belongs in the course schedule
       if (month === 2 && day === firstDayOfSpringBreak) { // if the day we're checking is the first day of Spring Break, just skip 9 days
         day += 9;
         week += 2;
@@ -891,10 +891,10 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
         } else {
           day += 4; // skip the rest
           dayToCheck = 1; // pretend it's Monday
-          week++;
+          week += 1;
           if (day > 30) { // make sure we didn't go over 30 days for November by skipping 4 days at the end of the month
             day = day - 30;
-            month++;
+            month += 1;
             lastDay = getLastDayOfMonth(month, year);
           }
         }
@@ -904,11 +904,11 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
       }
       if (day === lastDay) { // if we're at the last day of the month, reset the day counter to 0, increase the month counter, and calculate the last day of the new month
         day = 0;
-        month++;
+        month += 1;
         lastDay = getLastDayOfMonth(month, year);
       }
       if (dayToCheck === 6) { // if the day we're checking is Saturday, increment the week counter
-        week++;
+        week += 1;
       }
     }
     return daysToMeet; // an array of text dates ready to be inserted directly into the spreadsheet
@@ -969,7 +969,7 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
     var calcRange = sheet.getRange(courseFormat.finalGradeFormulaRange); // get the Range object representing the cells to which to apply the formulas
     var formula = courseFormat.finalGradeFormula;
     var formulas = [];
-    for (i = 4; i < 26; i++) { // 22 students maximum
+    for (i = 4; i < 26; i += 1) { // 22 students maximum
       formulas.push([formula.replace('$', i, 'g')]); // substitle '$' wildcard with the appropriate row number for each cell to which we are applying the final grade formula
     }
     calcRange.setFormulas(formulas); // apply the formulas to the Range object
@@ -992,11 +992,11 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
     var blankRow = [];
     var shadedRow = [];
     var newRows = [];
-    for (i = 0; i < lastColumn; i++) { // generate array of alternating colors of the correct length
+    for (i = 0; i < lastColumn; i += 1) { // generate array of alternating colors of the correct length
       blankRow.push(blankColor);
       shadedRow.push(shadedColor);
     }
-    for (i = 4; i <= lastRow; i++) {
+    for (i = 4; i <= lastRow; i += 1) {
       i % 2 === 0 ? newRows.push(blankRow) : newRows.push(shadedRow); // generate array of alternating shaded and blank rows so I only have to call setBackgrounds once
     }
     shadedRange.setBackgrounds(newRows); // set row backgrounds
@@ -1710,7 +1710,7 @@ function doCreateFolderStructure(sheet) {
     if (existingStudentFolders !== null) {
       try {
         var updatedStudents = newStudents.slice();
-        for (folder = 0; folder < existingStudentFolders.length; folder++) {
+        for (folder = 0; folder < existingStudentFolders.length; folder += 1) {
           var name = existingStudentFolders[folder].getName();
           if (arrayContains(newStudents, name)) {
               updatedStudents.splice(newStudents.indexOf(name), 1);
