@@ -933,8 +933,9 @@ Exposify.prototype.doParseSpreadsheet = function(id, mimeType) {
     if (mimeType === 'application/vnd.google-apps.spreadsheet') {
       var file = SpreadsheetApp.openById(id); // open file to retrieve data
       var page = file.getSheets()[0];
-      var range = page.getRange('A2:F24').getValues();
-      for (row = 0; row < 23; row++) {
+      var lastRow = page.getLastRow();
+      var range = page.getRange(2, 1, lastRow - 1, 6).getValues();
+      for (row = 0; row < lastRow - 1; row += 1) {
         var fileSection = range[row][2].substr(18, 2); // extract section from course code
         if (range[row][0] && range[row][4] === 'Student' && fileSection === section) {
           students.push(new Student(range[row][0], range[row][1])); // create list of Student objects from spreadsheet
@@ -945,9 +946,9 @@ Exposify.prototype.doParseSpreadsheet = function(id, mimeType) {
       var data = file.getAs('text/csv').getDataAsString(); // convert file data into a string (can't open csv files in Google Drive)
       var csv = Utilities.parseCsv(data);
       var length = csv.length;
-      for (row = 1; row < length; row++) {
+      for (row = 1; row < length; row += 1) {
         var fileSection = csv[row][2].substr(18, 2); // extract section from course code
-        if (csv[row][0] && csv[row][4] === 'Student' && fileSecton === section) {
+        if (csv[row][0] && csv[row][4] === 'Student' && fileSection === section) {
           students.push(new Student(csv[row][0], csv[row][1])); // create list of Student objects from csv file
         }
       }
