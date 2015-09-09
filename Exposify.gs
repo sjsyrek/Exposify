@@ -1046,13 +1046,15 @@ Exposify.prototype.executeMenuCommand = function(params) {
       this.showModalDialog(htmlDialog, dialog.title); // to limit the number of times I reference Ui
     }
     if (params.hasOwnProperty('command')) { // execute whatever other command the user is requesting, if no alert or dialog is needed
+      var that = this; // have I told you lately that I love JavaScript?
       var commands = {
-        assignmentsCalcWordCounts: function() { this.showHtmlSidebar(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS); },
-        formatSwitchStudentNames: function() { this.doSwitchStudentNames(this.getActiveSheet()); },
-        formatSetShadedRows: function() { this.doSetShadedRows(this.getActiveSheet()); },
-        help: function() { this.showHtmlSidebar(SIDEBAR_HELP); }
+        assignmentsCalcWordCounts: function() { that.showHtmlSidebar(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS); },
+        formatSwitchStudentNames: function() { that.doSwitchStudentNames(that.getActiveSheet()); },
+        formatSetShadedRows: function() { that.doSetShadedRows(that.getActiveSheet()); },
+        help: function() { that.showHtmlSidebar(SIDEBAR_HELP); }
       };
       var command = commands[params.command];
+      Logger.log(command);
       command();
     }
   } catch(e) {
