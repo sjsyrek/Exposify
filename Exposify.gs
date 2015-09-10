@@ -55,6 +55,8 @@
 //TODO: make sure error logging is correct format
 //TODO: fix JSDoc param comments
 //TODO: make it possible to specify the maximum number of students in a course
+//TODO: make sure internal functions that reference this actually work
+//TODO: add titles to alerts
 
 
 /**
@@ -77,7 +79,8 @@ var STYLESHEET = 'Stylesheet.html'; // can't include a css stylesheet, so we put
 var TIMEZONE = 'America/New_York'; // default timezone
 var MAX_STUDENTS = 22; // maximum number of students in any course (not a good idea to change this)
 
-var OK = 'ok'; // UI constant aliases
+var ALERT_TITLE_DEFAULT = 'Exposify'; // UI constant aliases
+var OK = 'ok';
 var OK_CANCEL = 'okCancel';
 var YES_NO = 'yesNo';
 var PROMPT = 'prompt';
@@ -108,6 +111,7 @@ var MIME_TYPE_GOOGLE_SHEET = 'application/vnd.google-apps.spreadsheet';
  */
 var ALERT_INSTALL_THANKS = 'Thanks for installing Exposify! Add a new section by selecting \"Setup New Expos Section\" in the Exposify menu.';
 var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '\'$\' successfully imported! You should double-check the spreadsheet to make sure it\'s correct.';
+var ALERT_SETUP_CREATE_CONTACTS_SUCCESS = 'New contact group successfully created for $.';
 var ALERT_SETUP_CREATE_FOLDER_STRUCTURE = 'This command will create or update the folder structure for your Expos section, including a shared coursework folder and individual folders for each student based on this sheet. Do you wish to proceed?';
 var ALERT_SETUP_CREATE_FOLDER_STRUCTURE_NOTHING_NEW = 'Nothing to update.';
 var ALERT_SETUP_SHARE_FOLDERS = 'This will share the course folder with all students and each student folder with that student, respectively. Do you wish to proceed?';
@@ -282,6 +286,13 @@ var COURSE_FORMATS = {
 
 var OTHER_COURSE_NUMBER = '0'; // dummy course number for when 'Other' is selected from the setupNewGradebook dialog
 
+var COURSE_SHORT_TITLES = {
+  Expository: 'Expos',
+  Exposition: 'Expos',
+  Research: 'Research',
+  Default: 'Course'
+};
+
 /* The SUMMER_SESSIONS object literal is a slightly obtuse way of storing information about the slightly obtuse summer session schedule.
  * The order is: day of the week the session starts (0–6), month the session starts (0–12), date counting from 1 on which the session
  * would start if the first day of the month were the same day of the week as the day the session starts, how long the course is in weeks
@@ -309,7 +320,8 @@ var SUMMER_SESSIONS = {
 var DIALOG_SETUP_NEW_GRADEBOOK = {
   alert: {
     alertType: YES_NO,
-    msg: 'This will replace all data on this sheet. Are you sure you wish to proceed?'
+    msg: 'This will replace all data on this sheet. Are you sure you wish to proceed?',
+    title: 'Setup New Gradebook'
   },
   dialog: {
     title: 'Setup New Section',
@@ -322,7 +334,8 @@ var DIALOG_SETUP_NEW_GRADEBOOK = {
 var DIALOG_SETUP_ADD_STUDENTS = {
   alert: {
     alertType: YES_NO,
-    msg: 'This will replace any students currently listed in this gradebook. Are you sure you wish to proceed?'
+    msg: 'This will replace any students currently listed in this gradebook. Are you sure you wish to proceed?',
+    title: 'Add Students to Section'
   },
   dialog: {
     title: 'Add students to section',
@@ -331,6 +344,15 @@ var DIALOG_SETUP_ADD_STUDENTS = {
     height: 600
   },
   error_msg: 'There was a problem accessing your Drive. Please try again.'
+};
+var DIALOG_SETUP_CREATE_CONTACTS = {
+  alert: {
+    alertType: YES_NO,
+    msg: 'This will create or update contacts and create a contact group based on the students on this spreadsheet. Students no longer in this course will be removed from the contact group if it already exists, but the contacts themselves will not be deleted. Is this what you want to do?',
+    title: 'Create Contact Group'
+  },
+  command: 'setupCreateContacts',
+  error_msg: 'Unable to access contacts. Please try again.'
 };
 
 /**
@@ -384,6 +406,7 @@ function onOpen() {
       .addSubMenu(ui.createMenu('Setup')
         .addItem('New gradebook...', 'exposifySetupNewGradebook')
         .addItem('Add students to gradebook...', 'exposifySetupAddStudents')
+        .addItem('Create contact group for students...', 'exposifySetupCreateContacts')
         .addItem('Create or update folder structure for this section...', 'exposifySetupCreateFolderStructure')
         .addItem('Share folders with students...', 'exposifySetupShareFolders'))
       .addSubMenu(ui.createMenu('Assignments')
@@ -498,15 +521,10 @@ function Exposify() {
    */
   var menu_ = ui_.createMenu('Exposify');
   /**
-   * Stores references to common UI buttons, so I don't have to look them up at runtime.
-   * @private {Button}
-   */
-  var ok_ = ui_.Button.OK;
-  var yes_ = ui_.Button.YES;
-  /**
    * Stores references to common UI button sets, so I don't have to look them up at runtime.
    * @private {ButtonSet}
    */
+  var ok_ = ui_.ButtonSet.OK;
   var okCancel_ = ui_.ButtonSet.OK_CANCEL;
   var yesNo_ = ui_.ButtonSet.YES_NO;
   // Protected methods
@@ -563,7 +581,6 @@ function Exposify() {
    */
   this.alertUi = {
     ok: ok_,
-    yes: yes_,
     okCancel: okCancel_,
     yesNo: yesNo_
     };
@@ -586,6 +603,7 @@ function Exposify() {
  */
 function exposifySetupNewGradebook() { expos.executeMenuCommand.call(expos, DIALOG_SETUP_NEW_GRADEBOOK); }
 function exposifySetupAddStudents() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_ADD_STUDENTS); }
+function exposifySetupCreateContacts() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_CREATE_CONTACTS); }
 function exposifyAssignmentsCalcWordCounts() { return expos.checkSheetStatus.call(expos, {command: 'assignmentsCalcWordCounts'}); }
 function exposifyFormatSwitchStudentNames() { return expos.checkSheetStatus.call(expos, {command: 'formatSwitchStudentNames', error_msg: ERROR_FORMAT_SWITCH_STUDENT_NAMES}); }
 function exposifyFormatSetShadedRows() { return expos.checkSheetStatus.call(expos, {command: 'formatSetShadedRows', error_msg: ERROR_FORMAT_SET_SHADED_ROWS}); }
@@ -630,16 +648,33 @@ function getOAuthToken() { return expos.getOAuthToken(); }
 Exposify.prototype.alert = function(confirmation) {
   try {
     if (!confirmation.hasOwnProperty('alertType')) {
-      return this.makeAlert(OK, confirmation.msg); // A simple alert with an OK button is the default
+      return this.doMakeAlert({alertType: OK, msg: confirmation.msg}); // A simple alert with an OK button is the default
     } else if (!this.alertUi.hasOwnProperty(confirmation.alertType)) {
       var e = 'Alert type ' + confirmation.alertType + 'is not defined on Exposify.';
       throw e // Throw an exception if the alert type doesn't exist, probably superfluous error checking
     } else {
-      var alertFunction = this.makeAlert(confirmation.alertType, confirmation.msg); // Factor out the alert composition
+      var alertFunction = this.doMakeAlert(confirmation); // Factor out the alert composition
       return alertFunction;
     }
   } catch(e) { this.logError('Exposify.prototype.alert', e); }
 } // end Exposify.prototype.alert
+
+
+/**
+ * Check whether an array contains a specified item. Modified code from http://stackoverflow.com/a/237176.
+ * @param {Array} arr - The array to check.
+ * @param {*} item - Any value.
+ * @return {boolean}
+ */
+Exposify.prototype.arrayContains = function(arr, item) {
+  var i = arr.length;
+  while (i--) {
+    if (arr[i] === item) {
+      return true;
+    }
+  }
+  return false;
+} // end Exposify.prototype.arrayContains
 
 
 /**
@@ -696,7 +731,7 @@ Exposify.prototype.doAddStudents = function (students, sheet) {
     var fullRange = sheet.getRange(4, 1, MAX_STUDENTS, 2);
     fullRange.clearContent(); // erase whatever data is already on the sheet where we put student names
     var range = sheet.getRange(4, 1, students.length, 2); // get a range of two columns and a number of rows equal to the number of students to insert
-    students.forEach( function(student) { studentList.push([student.name, student.netid]); } ); // add a row to the temporary studentList array for each student
+    students.forEach(function(student) { studentList.push([student.name, student.netid]); } ); // add a row to the temporary studentList array for each student
     range.setValues(studentList); // set the value of the whole range at once, so I don't call the API more than necessary
   } catch(e) { this.logError('Exposify.prototype.doAddStudents', e); }
 } // end Exposify.prototype.doAddStudents
@@ -817,6 +852,41 @@ Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
 
 
 /**
+ * Create an alert dialog box to be displayed to the user. The alert is comprised of an alert type, which should be
+ * OK, OK_CANCEL, or YES_NO, and a message to print in the dialog box. The alert types are constant values. This
+ * function returns another function that can be executed to display the dialog box.
+ * @param {Object}
+ * @param {string} Object.alertType - The type of alert to display.
+ * @param {string} Object.msg - The message to display in the alert.
+ * @return {Function} dialog - The function for displaying the alert dialog.
+ */
+Exposify.prototype.doMakeAlert = function(confirmation) {
+  try {
+    var alertType = confirmation.alertType;
+    var msg = confirmation.msg;
+    var ui = this.getUi();
+    var title = (confirmation.hasOwnProperty('title') ? confirmation.title : ALERT_TITLE_DEFAULT);
+    var alertUi = this.alertUi;
+    var ok = alertUi.ok;
+    var yes = alertUi.yes;
+    var okCancel = alertUi.okCancel;
+    var yesNo = alertUi.yesNo;
+    var alerts = { // Map alert functions to different alert types
+      ok: function() { return ui.alert(title, msg, ok); },
+      okCancel: function() { return (ui.alert(title, msg, okCancel)) === ok ? true : false; },
+      yesNo: function() { return (ui.alert(title, msg, yesNo)) === yes ? true : false; },
+      prompt: function() {
+        var response = ui.prompt(title, msg, okCancel);
+        return response.getSelectedButton() === ok ? response.getResponseText() : false;
+      }
+    };
+    var dialog = alerts[alertType]; // Create a function using the closures stored in the {@code alerts} variable.
+    return dialog; // Return the function without executing it.
+  } catch(e) { this.logError('Exposify.prototype.doMakeAlert', e); }
+} // end Exposify.prototype.doMakeAlert
+
+
+/**
  * Make Google Apps Data Validation objects for applying grade validation to a new gradebook.
  * @param {number} courseNumber - The course number, used to pull data from the course template object literal.
  * @return {GradeValidationSet} gradeValidations - The grade validations to apply and the ranges to apply them to.
@@ -899,7 +969,7 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
           }
         }
       }
-      if (meetingDays.some( function(meetingDay) { return dayToCheck === DAYS[meetingDay]; })) { // if the day we're checking is one of the days the class meets, add it to a running list of meeting days
+      if (meetingDays.some(function(meetingDay) { return dayToCheck === DAYS[meetingDay]; })) { // if the day we're checking is one of the days the class meets, add it to a running list of meeting days
         daysToMeet.push((month + 1) + '/\n' + day); // create the actual text that will appear in the spreadsheet for each meeting day, i.e. 9/1 with a carriage return after the forward slash to look nice and avoid automatic date formatting
       }
       if (day === lastDay) { // if we're at the last day of the month, reset the day counter to 0, increase the month counter, and calculate the last day of the new month
@@ -1048,13 +1118,13 @@ Exposify.prototype.executeMenuCommand = function(params) {
     if (params.hasOwnProperty('command')) { // execute whatever other command the user is requesting, if no alert or dialog is needed
       var that = this; // have I told you lately that I love JavaScript?
       var commands = {
+        setupCreateContacts: function() { that.setupCreateContacts(that.getActiveSheet()); },
         assignmentsCalcWordCounts: function() { that.showHtmlSidebar(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS); },
         formatSwitchStudentNames: function() { that.doSwitchStudentNames(that.getActiveSheet()); },
         formatSetShadedRows: function() { that.doSetShadedRows(that.getActiveSheet()); },
         help: function() { that.showHtmlSidebar(SIDEBAR_HELP); }
       };
       var command = commands[params.command];
-      Logger.log(command);
       command();
     }
   } catch(e) {
@@ -1155,28 +1225,24 @@ Exposify.prototype.getCourseData = function(course) {
 
 /**
  * Return the name of the course for a given gradebook.
- * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve the course section.
- * @return {string} courseSection - The section of the course.
- */
-Exposify.prototype.getSectionTitle = function(sheet) {
-  try {
-    var title = sheet.getRange('A1').getValue(); // the name of the course, from the gradebook
-    var re = /.+:/;
-    var courseSection = title.replace(re, '');
-    return courseSection;
-  } catch(e) { this.logError('Exposify.prototype.getSectionTitle', e); }
-} // Exposify.prototype.getSectionTitle
-
-
-/**
- * Return the name of the course for a given gradebook.
  * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve the course name.
+ * @param {string=} style - Optional parameter to return a different title style, i.e. "short"
  * @return {string} courseTitle - The name of the course, with section number appended.
  */
-Exposify.prototype.getCourseTitle = function(sheet) {
+Exposify.prototype.getCourseTitle = function(sheet, style) {
   try {
     var title = sheet.getRange('A1').getValue(); // the name of the course, from the gradebook
-    var courseTitle = title.replace(/(\s\d+)?:/, ' '); // string manipulation to get a folder name friendly version of the course name and section code
+    if (arguments.length > 1 && style === 'short') { // mostly useful for creating contact groups
+      var firstWord = title.split(' ')[0];
+      var shortTitle = (COURSE_SHORT_TITLES.hasOwnProperty(firstWord) ? COURSE_SHORT_TITLES[firstWord] : COURSE_SHORT_TITLES['Default']);
+      var courseTitle = shortTitle + ' ' + this.getSectionTitle(sheet);
+    } else {
+      var courseTitle = title.replace(/(\s\d+)?:/, ' '); // string manipulation to get a folder name friendly version of the course name and section code
+    }
+    if (courseTitle === undefined) {
+      var e = 'courseTitle is undefined on Exposify.prototype.getCourseTitle';
+      throw e;
+    }
     return courseTitle;
   } catch(e) { this.logError('Exposify.prototype.getCourseTitle', e); }
 } // Exposify.prototype.getCourseTitle
@@ -1256,7 +1322,11 @@ Exposify.prototype.getLastDayOfMonth = function(month, year) {
  */
 Exposify.prototype.getNameFirstLast = function(name) {
   var names = name.split(','); // if name string contains a comma, assume they are in last, first order and split them at the comma
-  var newName = names[1].trim() + ' ' + names[0].trim(); // remove leading and trailing whitespace but add a space between them
+  if (names.length > 1) { // if, for some reason, the name is already first name first
+    var newName = names[1].trim() + ' ' + names[0].trim(); // remove leading and trailing whitespace but add a space between them
+  } else {
+    var newName = names[0];
+  }
   return newName;
 } // end Exposify.prototype.getNameFirstLast
 
@@ -1291,6 +1361,21 @@ Exposify.prototype.getOAuthToken = function() {
 
 
 /**
+ * Return the name of the course for a given gradebook.
+ * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve the course section.
+ * @return {string} courseSection - The section of the course.
+ */
+Exposify.prototype.getSectionTitle = function(sheet) {
+  try {
+    var title = sheet.getRange('A1').getValue(); // the name of the course, from the gradebook
+    var re = /.+:/;
+    var courseSection = title.replace(re, '');
+    return courseSection;
+  } catch(e) { this.logError('Exposify.prototype.getSectionTitle', e); }
+} // Exposify.prototype.getSectionTitle
+
+
+/**
  * Return the semester for which a given gradebook is used.
  * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve the semester.
  * @return {string} semesterTitle - The semester.
@@ -1310,6 +1395,21 @@ Exposify.prototype.getSemesterYearString = function(semester) {
   var year = new Date().getFullYear(); // assume any given gradebook is being created for the current year (not sure if that's a good idea, but it seems likely in the vast majority of cases)
   return semester + ' ' + year; // create a string from the semester and the current year, i.e. 'Fall 2015'
 } // end Exposify.prototype.getSemesterYearString
+
+
+/**
+ * Check whether a gradebook has been set up for a Sheet. Return true if so, false otherwise.
+ * @param {Sheet} sheet - The Google Apps Sheet object to check.
+ * @return {boolean}
+ */
+Exposify.prototype.getSheetStatus = function(sheet) {
+  try {
+    var props = PropertiesService.getDocumentProperties();
+    var key = sheet.getName();
+    var status = props.getProperty(key);
+    return status === 'active' ? true : false;
+  } catch(e) { this.logError('Exposify.prototype.getSheetStatus', e); }
+} // end Exposify.prototype.getSheetStatus
 
 
 /**
@@ -1340,14 +1440,14 @@ Exposify.prototype.getStudents = function(sheet) {
  */
 Exposify.prototype.getStudentNames = function(sheet) {
   try {
-				var students = this.getStudents(sheet);
-				var studentNames = [];
-				students.forEach( function(student) {
-						var studentName = student.name.match(/.+,.+/) ? this.getNameFirstLast(student.name) : student.name;
-						studentNames.push(studentName);
-				});
-				return studentNames;
-		} catch(e) { this.logError('Exposify.prototype.getStudentNames', e); }
+    var students = this.getStudents(sheet);
+    var studentNames = [];
+    students.forEach(function(student) {
+      var studentName = student.name.match(/.+,.+/) ? this.getNameFirstLast(student.name) : student.name;
+      studentNames.push(studentName);
+    });
+    return studentNames;
+  } catch(e) { this.logError('Exposify.prototype.getStudentNames', e); }
 } // end Exposify.prototype.getStudentNames
 
 
@@ -1369,21 +1469,6 @@ Exposify.prototype.getTuesdayOfThanksgivingWeek = function(year) {
   }
   return findThanksgiving(firstThursdayOfNovember) - 2; // the Tuesday of Thanksgiving week is the value of Thanksgiving Day minus 2 days
 } // end Exposify.prototype.getTuesdayOfThanksgivingWeek
-
-
-/**
- * Check whether a gradebook has been set up for a Sheet. Return true if so, false otherwise.
- * @param {Sheet} sheet - The Google Apps Sheet object to check.
- * @return {boolean}
- */
-Exposify.prototype.getSheetStatus = function(sheet) {
-  try {
-    var props = PropertiesService.getDocumentProperties();
-    var key = sheet.getName();
-    var status = props.getProperty(key);
-    return status === 'active' ? true : false;
-  } catch(e) { this.logError('Exposify.prototype.getSheetStatus', e); }
-} // end Exposify.prototype.getSheetStatus
 
 
 /**
@@ -1435,38 +1520,6 @@ Exposify.prototype.logInstall = function() {
     pasteRange.setValues([info]);
   }
 } // end Exposify.prototype.logInstall
-
-
-/**
- * Create an alert dialog box to be displayed to the user. The alert is comprised of an alert type, which should be
- * OK, OK_CANCEL, or YES_NO, and a message to print in the dialog box. The alert types are constant values. This
- * function returns another function that can be executed to display the dialog box.
- * @param {Object}
- * @param {string} Object.alertType - The type of alert to display.
- * @param {string} Object.msg - The message to display in the alert.
- * @return {Function} dialog - The function for displaying the alert dialog.
- */
-Exposify.prototype.makeAlert = function(alertType, msg) {
-  try {
-    var ui = this.getUi();
-    var alertUi = this.alertUi;
-    var ok = alertUi.ok;
-    var yes = alertUi.yes;
-    var okCancel = alertUi.okCancel;
-    var yesNo = alertUi.yesNo;
-    var alerts = { // Map alert functions to different alert types
-      ok: function() { return ui.alert(msg); },
-      okCancel: function() { return (ui.alert(msg, okCancel)) === ok ? true : false; },
-      yesNo: function() { return (ui.alert(msg, yesNo)) === yes ? true : false; },
-      prompt: function() {
-        var response = ui.prompt(msg, okCancel);
-        return response.getSelectedButton() === ok ? response.getResponseText() : false;
-      }
-    };
-    var dialog = alerts[alertType]; // Create a function using the closures stored in the {@code alerts} variable.
-    return dialog; // Return the function without executing it.
-  } catch(e) { this.logError('Exposify.prototype.makeAlert', e); }
-} // end Exposify.prototype.makeAlert
 
 
 /**
@@ -1532,6 +1585,38 @@ Exposify.prototype.setupAddStudents = function(id) {
     this.logError('Exposify.prototype.setupAddStudents', e);
   }
 } // end Exposify.prototype.setupAddStudents
+
+
+/**
+ * Create a Google Contacts contact group for the students listed in the active gradebook.
+ * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve student names.
+ */
+Exposify.prototype.setupCreateContacts = function(sheet) {
+  try {
+    var students = this.getStudents(sheet);
+    var allContacts = ContactsApp.getContactsByEmailAddress(EMAIL_DOMAIN);
+    var allContactsEmails = allContacts.map(function(contact) { return contact.getEmails()[0].getAddress(); }); // try to save time by reducing API calls
+    var contactGroupTitle = this.getCourseTitle(sheet, 'short');
+    var contactGroup = ContactsApp.getContactGroup(contactGroupTitle); // does this contact group already exist?
+    var that = this; // thanks, JavaScript
+    if (contactGroup !== null) { // if the group already exists, delete it
+      contactGroup.deleteGroup();
+    }
+    contactGroup = ContactsApp.createContactGroup(contactGroupTitle); // create a new group
+    students.forEach(function(student) { // for each Student object passed in the argument array
+      var contactExists = allContactsEmails.indexOf(student.email);
+      if (contactExists === -1) { // if not, create a new contact
+        var name = that.getNameFirstLast(student.name).split(' ');
+        var contact = ContactsApp.createContact(name[0], name[1], student.email);
+      } else {
+        var contact = ContactsApp.getContact(student.email);
+      }
+      contactGroup.addContact(contact); // this is slow :(
+    });
+    var msg = ALERT_SETUP_CREATE_CONTACTS_SUCCESS.replace('$', contactGroupTitle); // '$' is replaced with the name of the contact group
+    this.alert({msg: msg})();
+  } catch(e) { this.logError('Exposify.prototype.setupCreateContacts', e); }
+} // end Exposify.prototype.setupCreateContacts
 
 
 /**
@@ -2001,19 +2086,4 @@ function googleOAuth_(name, scope) {
 function test1() {
   var type = DriveApp.getFileById('1b9fEFuDMXd8c4e1_AvBRY-055Z1uR0pvrOVwTgEm5eE').getMimeType();
   Logger.log(type);
-}
-
-/**
- * Check whether an array contains a specified item. Modified code from http://stackoverflow.com/a/237176.
- * @param {*} item - Any value.
- * @returns {boolean}
- */
-function arrayContains(arr, item) {
-  var i = arr.length;
-  while (i--) {
-    if (arr[i] === item) {
-      return true;
-    }
-  }
-  return false;
 }
