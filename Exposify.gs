@@ -526,6 +526,7 @@ function Exposify() {
    */
   var ok_ = ui_.ButtonSet.OK;
   var okCancel_ = ui_.ButtonSet.OK_CANCEL;
+  var yes_ = ui_.Button.YES;
   var yesNo_ = ui_.ButtonSet.YES_NO;
   // Protected methods
   /**
@@ -582,6 +583,7 @@ function Exposify() {
   this.alertUi = {
     ok: ok_,
     okCancel: okCancel_,
+    yes: yes_,
     yesNo: yesNo_
     };
   // Initialization procedures
@@ -626,9 +628,11 @@ function exposifyAssignmentsCompareDrafts() { return expos.assignmentsCompareDra
  * functions pass control to other functions that do the actual work. In the future, I may replace
  * these functions with a single callback handler, as with the menu functions, if it's possible.
  */
+function assignmentsCalcWordCountsCallback(params) { return expos.assignmentsCalcWordCounts(params); }
+function assignmentsCalcWordCountsCallbackGetTitle() { return expos.assignmentsCalcWordCountsGetTitle(); }
+function getOAuthToken() { return expos.getOAuthToken(); }
 function setupNewGradebookCallback(courseInfo) { expos.setupNewGradebook(courseInfo); }
 function setupAddStudentsCallback(id) { expos.setupAddStudents(id); }
-function getOAuthToken() { return expos.getOAuthToken(); }
 
 
 // EXPOSIFY FUNCTIONS
@@ -675,6 +679,53 @@ Exposify.prototype.arrayContains = function(arr, item) {
   }
   return false;
 } // end Exposify.prototype.arrayContains
+
+
+/**
+ * Return word counts for the set of files specified by the user.
+ * @param {Object} params - An object containing the parameters passed to the callback function.
+ * @param {string} params.students - Either "selected" or "all," the option to search all papers or a subset.
+ * @param {string} params.filter - The filter for the files, optionally entered by the user.
+ */
+Exposify.prototype.assignmentsCalcWordCounts = function(params) {
+  try {
+    var sheet = this.getActiveSheet();
+    var students = params.students;
+    var filter = params.filter;
+    var counts = null;
+    if (students === 'selected') {
+      var counts = this.doCalcWordCountsSelected(sheet, filter);
+    } else if (students === 'all') {
+      var counts = this.doCalcWordCountsAll(sheet, filter);
+    }
+    counts.sort(function (a, b) {
+      if (a.document > b.document) {
+              return 1;
+      }
+      if (a.document < b.document) {
+              return -1;
+      }
+      return 0;
+      });
+    return counts;
+  } catch(e) { this.logError('Exposify.prototype.assignmentsCalcWordCounts', e); }
+} // end Exposify.prototype.assignmentsCalcWordCounts
+
+
+/**
+ * Retrieve the title of the course and number of students enrolled for use in the
+ * word counts sidebar.
+ * @return {string} title - The course title and enrollment figure.
+ */
+Exposify.prototype.assignmentsCalcWordCountsGetTitle = function() {
+  try {
+    var sheet = this.getActiveSheet();
+    var courseTitle = this.getCourseTitle(sheet);
+    var enrollment = this.getStudentCount(sheet);
+    var title = courseTitle + ' (' + enrollment + ' students)';
+    return title;
+  } catch(e) { this.logError('Exposify.prototype.assignmentsCalcWordCountsGetTitle', e); }
+} // end Exposify.prototype.assignmentsCalcWordCountsGetTitle
 
 
 /**
@@ -1097,6 +1148,52 @@ Exposify.prototype.doSwitchStudentNames = function (sheet) {
 
 
 /**
+ * Generate a regular expression for counting the words of all the documents in a course folder.
+ * @param {Sheet} sheet - A Google Apps Sheet object containing the gradebook to check.
+ * @param {string} filter - The file search filter supplied by the user.
+ * @return {Array} counts - The array of word count information returned by {@code getWordCounts()}.
+ */
+Exposify.prototype.doCalcWordCountsAll = function(sheet, filter) {
+  try {
+    var studentList = this.getStudentNames(sheet);
+    var regex = '(.*';
+    studentList.forEach( function(student, index) {
+      regex += (student + (index === studentList.length - 1 && filter === '' ? '.*)' : '.*|.*')); // I am a bad person
+    });
+    if (filter !== '') {
+      regex += (filter + '.*)+(.*' + filter + '.*|.*'); // I'm sorry
+      studentList.forEach( function(student, index) {
+        regex += (student + (index === studentList.length - 1 ? '.*)' : '.*|.*')); // Seriously
+      });
+    }
+    var re = new RegExp(regex);
+    var counts = this.getWordCounts(sheet, re);
+    return counts;
+  } catch(e) { this.logError('Exposify.prototype.doCalcWordCountsAll', e); }
+} // end Exposify.prototype.doCalcWordCountsAll
+
+
+/**
+ * Generate a regular expression for counting the words of a specific student's documents.
+ * @param {Sheet} sheet - A Google Apps Sheet object containing the gradebook to check.
+ * @param {string} filter - The file search filter supplied by the user.
+ * @return {Array} counts - The array of word count information returned by {@code getWordCounts()}.
+ */
+Exposify.prototype.doCalcWordCountsSelected = function(sheet, filter) {
+  try {
+    var cellValue = sheet.getActiveCell().getValue();
+    if (cellValue === '') {
+      return [];
+    }
+    var regex = (filter === '' ? '.*' + cellValue + '.*' : '(.*' + cellValue + '.*|.*' + filter + '.*)+(.*' + filter + '.*|.*' + cellValue + '.*)'); // I mean it
+    var re = new RegExp(regex);
+    var counts = this.getWordCounts(sheet, re);
+    return counts;
+  } catch(e) { this.logError('Exposify.prototype.doCalcWordCountsSelected', e); }
+} // end Exposify.prototype.doCalcWordCountsSelected
+
+
+/**
  * Execute a menu command selected by the user, first displaying an alert and then an
  * HTML dialog box, both provided as arguments and based on object literal constants.
  * @param {Object} params - The parameters passed to the function.
@@ -1215,8 +1312,8 @@ Exposify.prototype.getCourseData = function(course) {
     }
     var semesterBeginsDate = new Date(semesterYear, semesterMonth, semesterBeginsDay);
     return {semesterBeginsDate: semesterBeginsDate,
-            meetingDays: meetingDays,
-            meetingWeeks: meetingWeeks};
+      meetingDays: meetingDays,
+      meetingWeeks: meetingWeeks};
   } catch(e) {
     this.logError('Exposify.prototype.getCourseData', e);
   }
@@ -1224,21 +1321,27 @@ Exposify.prototype.getCourseData = function(course) {
 
 
 /**
+ * Get the course folder for the gradebook on the active spreadsheet.
+ * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated course folder
+ */
+Exposify.prototype.getCourseFolder = function(sheet) {
+  try {
+    var courseTitle = this.getCourseTitle(sheet);
+    var folderIter = DriveApp.getFoldersByName(courseTitle);
+    return folderIter.hasNext() ? folderIter.next() : null; // return the first match found
+  } catch(e) { this.logError('Exposify.prototype.getCourseFolder', e); }
+} // end Exposify.prototype.getCourseFolder
+
+
+/**
  * Return the name of the course for a given gradebook.
  * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve the course name.
- * @param {string=} style - Optional parameter to return a different title style, i.e. "short"
  * @return {string} courseTitle - The name of the course, with section number appended.
  */
-Exposify.prototype.getCourseTitle = function(sheet, style) {
+Exposify.prototype.getCourseTitle = function(sheet) {
   try {
     var title = sheet.getRange('A1').getValue(); // the name of the course, from the gradebook
-    if (arguments.length > 1 && style === 'short') { // mostly useful for creating contact groups
-      var firstWord = title.split(' ')[0];
-      var shortTitle = (COURSE_SHORT_TITLES.hasOwnProperty(firstWord) ? COURSE_SHORT_TITLES[firstWord] : COURSE_SHORT_TITLES['Default']);
-      var courseTitle = shortTitle + ' ' + this.getSectionTitle(sheet);
-    } else {
-      var courseTitle = title.replace(/(\s\d+)?:/, ' '); // string manipulation to get a folder name friendly version of the course name and section code
-    }
+    var courseTitle = title.replace(/(\s\d+)?:/, ' '); // string manipulation to get a folder name friendly version of the course name and section code
     if (courseTitle === undefined) {
       var e = 'courseTitle is undefined on Exposify.prototype.getCourseTitle';
       throw e;
@@ -1434,6 +1537,19 @@ Exposify.prototype.getStudents = function(sheet) {
 
 
 /**
+ * Return the number of students in the active gradebook.
+ * @param {Sheet} sheet - A Google Apps Sheet object with the gradebook to count.
+ * @return {number} count - The number of students.
+ */
+Exposify.prototype.getStudentCount = function(sheet) {
+  try {
+    var count = sheet.getLastRow() - 3; // the number of students is equal to the number of rows with content minus the three header rows
+    return count;
+  } catch (e) { this.logError('Exposify.prototype.getStudentCount', e); }
+} // end Exposify.prototype.getStudentCount
+
+
+/**
  * Retrieve student names from the gradebook, in first name first order.
  * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve student data.
  * @return {Array} studentNames - A list of student names.
@@ -1442,8 +1558,9 @@ Exposify.prototype.getStudentNames = function(sheet) {
   try {
     var students = this.getStudents(sheet);
     var studentNames = [];
+    var that = this;
     students.forEach(function(student) {
-      var studentName = student.name.match(/.+,.+/) ? this.getNameFirstLast(student.name) : student.name;
+      var studentName = student.name.match(/.+,.+/) ? that.getNameFirstLast(student.name) : student.name;
       studentNames.push(studentName);
     });
     return studentNames;
@@ -1469,6 +1586,41 @@ Exposify.prototype.getTuesdayOfThanksgivingWeek = function(year) {
   }
   return findThanksgiving(firstThursdayOfNovember) - 2; // the Tuesday of Thanksgiving week is the value of Thanksgiving Day minus 2 days
 } // end Exposify.prototype.getTuesdayOfThanksgivingWeek
+
+
+/**
+ * Count the words in a set of documents according to a supplied regular expression.
+ * @param {Sheet} sheet - A Google Apps Sheet object.
+ * @param {RegExp} re - A regular expression to use for matching filenames.
+ * @return {Array} counts - An array of objects containing the word count data.
+ */
+Exposify.prototype.getWordCounts = function(sheet, re) {
+  try {
+    var courseFolder = this.getCourseFolder(sheet);
+    if (courseFolder === null || courseFolder.isTrashed()) {
+      var e = 'No course folder could be found for this gradebook.';
+      throw e; // throw an exception if there's no course folder present
+    }
+    var filesIter = courseFolder.getFiles();
+    var filtered = [];
+    while (filesIter.hasNext()) {
+      var file = filesIter.next();
+      var match = file.getName().match(re); // match each filename found in the course folder against the supplied regular expression
+      if (match !== null && file.getMimeType() === 'application/vnd.google-apps.document') { // make sure the document is a Google Doc
+        filtered.push(file);
+      }
+    }
+    var counts = [];
+    filtered.forEach( function(file) {
+      var doc = DocumentApp.openById(file.getId()).getBody().getText();
+      count = doc.split(/\s+/g).length; // simple word count
+      var lastUpdated = file.getLastUpdated(); // last time the file was updated, useful to know
+      var formattedDate = lastUpdated.getMonth() + '/' + lastUpdated.getDate() + '/' + lastUpdated.getFullYear();
+      counts.push({document: file.getName(), count: count, lastUpdated: formattedDate});
+    });
+    return counts;
+  } catch(e) { this.logError('Exposify.prototype.getWordCounts', e); }
+} // end Exposify.prototype.getWordCounts
 
 
 /**
@@ -1596,7 +1748,7 @@ Exposify.prototype.setupCreateContacts = function(sheet) {
     var students = this.getStudents(sheet);
     var allContacts = ContactsApp.getContactsByEmailAddress(EMAIL_DOMAIN);
     var allContactsEmails = allContacts.map(function(contact) { return contact.getEmails()[0].getAddress(); }); // try to save time by reducing API calls
-    var contactGroupTitle = this.getCourseTitle(sheet, 'short');
+    var contactGroupTitle = this.getCourseTitle(sheet);
     var contactGroup = ContactsApp.getContactGroup(contactGroupTitle); // does this contact group already exist?
     var that = this; // thanks, JavaScript
     if (contactGroup !== null) { // if the group already exists, delete it
@@ -1934,111 +2086,6 @@ function doSetupShareFolders(sheet) { // unshare needed for students who drop, a
   missingAlert();
   spreadsheet.toast(ALERT_SETUP_SHARE_FOLDERS_SUCCESS, TOAST_TITLE, TOAST_DISPLAY_TIME);
 }
-
-/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Assignment functions
-
-function assignmentsCopy() {
-}
-
-function assignmentsReturn() {
-}
-
-function assignmentsCalcWordCountsCallback(params) {
-  var sheet = activeSheet();
-  var students = params.students;
-  var filter = params.filter;
-  var counts = null;
-  if (students === 'selected') {
-    var counts = doCalcWordCountsSelected(sheet, filter);
-  } else if (students === 'all') {
-    var counts = doCalcWordCountsAll(sheet, filter);
-  }
-  counts.sort(function (a, b) {
-    if (a.document > b.document) {
-      return 1;
-    }
-    if (a.document < b.document) {
-      return -1;
-    }
-    return 0;
-    });
-  return counts;
-}
-
-function assignmentsCalcWordCountsCallbackGetTitle() {
-  var sheet = activeSheet();
-  var courseTitle = getCourseTitle(sheet);
-  var students = getStudentNames(sheet).length;
-  var title = courseTitle + ' (' + students + ' students)';
-  return title;
-}
-
-// alphabetize results?
-function doCalcWordCountsAll(sheet, filter) {
-  var studentList = getStudentNames(sheet);
-  var regex = '(.*';
-  studentList.forEach( function(student, index) {
-    regex += (student + (index === studentList.length - 1 && filter === '' ? '.*)' : '.*|.*')); // I am a bad person
-  });
-  if (filter !== '') {
-    regex += (filter + '.*)+(.*' + filter + '.*|.*'); // I'm sorry
-    studentList.forEach( function(student, index) {
-      regex += (student + (index === studentList.length - 1 ? '.*)' : '.*|.*')); // Seriously
-    });
-  }
-  var re = new RegExp(regex);
-  return getWordCounts(sheet, re);
-}
-
-function doCalcWordCountsSelected(sheet, filter) {
-  var cellValue = sheet.getActiveCell().getValue();
-  if (cellValue === '') {
-    return [];
-  }
-  var regex = (filter === '' ? '.*' + cellValue + '.*' : '(.*' + cellValue + '.*|.*' + filter + '.*)+(.*' + filter + '.*|.*' + cellValue + '.*)'); // I mean it
-  var re = new RegExp(regex);
-  return getWordCounts(sheet, re);
-}
-
-function getWordCounts(sheet, re) {
-  var courseFolder = getCourseFolder(sheet);
-  if (courseFolder === null || courseFolder.isTrashed()) {
-    return null;
-  }
-  var filesIter = courseFolder.getFiles();
-  var filtered = [];
-  while (filesIter.hasNext()) {
-    var file = filesIter.next();
-    var match = file.getName().match(re);
-    if (match !== null && file.getMimeType() === 'application/vnd.google-apps.document') {
-      filtered.push(file);
-    }
-  }
-  var counts = [];
-  filtered.forEach( function(file) {
-    try {
-      var doc = DocumentApp.openById(file.getId()).getBody().getText();
-      count = doc.split(/\s+/g).length;
-      var lastUpdated = file.getLastUpdated();
-      var formattedDate = lastUpdated.getMonth() + '/' + lastUpdated.getDate() + '/' + lastUpdated.getFullYear();
-      counts.push({document: file.getName(), count: count, lastUpdated: formattedDate});
-    } catch(e) {
-      logError('assignmentsCalcSelectedWordCounts', e);
-    }
-  });
-  return counts;
-}
-
-function assignmentsCompareDrafts() {
-}
-
-function getCourseFolder(sheet) {
-  var courseTitle = getCourseTitle(sheet);
-  var folderIter = DriveApp.getFoldersByName(courseTitle);
-  return folderIter.hasNext() ? folderIter.next() : null;
-}
-
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
