@@ -121,6 +121,7 @@ var ALERT_SETUP_SHARE_FOLDERS_SUCCESS = 'The folders were successfully shared!';
 var ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS = 'A gradebook for section $ already exists. If you want to overwrite it, make it the active spreadsheet and try again.';
 var ALERT_SETUP_NEW_GRADEBOOK_SUCCESS = 'New gradebook created for $.';
 var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. Do that before anything else.';
+var ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS = 'New document files successfully created for the students in section $.';
 
 var TOAST_DISPLAY_TIME = 10; // how long should the little toast window linger before disappearing
 var TOAST_TITLE = 'Success!' // toast window title
@@ -189,11 +190,11 @@ var COURSE_FORMATS = {
         rangeToValidate: ['E4:E25', 'I4:I25', 'N4:N25', 'R4:R25', 'V4:V25']
       },
       /**
-							* Package and return grade validation data as an object with one field for the non-numeric
-							* data validations specified for this course. I could probably generalize this.
-							* @return {Object}
-							* @return {Array} Object.nonNumeric - The non-numeric grade validations.
-							*/
+       * Package and return grade validation data as an object with one field for the non-numeric
+       * data validations specified for this course. I could probably generalize this.
+       * @return {Object}
+       * @return {Array} Object.nonNumeric - The non-numeric grade validations.
+       */
       getGradeValidations: function() {
         var nonNumeric = [this.paperGrades, this.examGrades, this.finalGrades, this.roughDraftStatus, this.lateFinalStatus, this.incompleteFinalStatus];
         return {nonNumeric: nonNumeric}; // package and return validation data
@@ -236,12 +237,12 @@ var COURSE_FORMATS = {
         rangeToValidate: ['W4:W25']
       },
       /**
-							* Package and return grade validation data as an object with two fields for both the non-numeric
-							* and numeric data validations specified for this course.
-							* @return {Object}
-							* @return {Array} Object.nonNumeric - The non-numeric grade validations.
-							* @return {Array} Object.numeric - The numeric grade validations.
-							*/
+       * Package and return grade validation data as an object with two fields for both the non-numeric
+       * and numeric data validations specified for this course.
+       * @return {Object}
+       * @return {Array} Object.nonNumeric - The non-numeric grade validations.
+       * @return {Array} Object.numeric - The numeric grade validations.
+       */
       getGradeValidations: function() {
         var nonNumeric = [this.roughDraftStatus, this.lateFinalStatus, this.incompleteFinalStatus, this.proposalGrade, this.finalGrades];
         var numeric = [this.numericGrades];
@@ -338,7 +339,7 @@ var DIALOG_SETUP_ADD_STUDENTS = {
     title: 'Add Students to Section'
   },
   dialog: {
-    title: 'Add students to section',
+    title: 'Add Students to Section',
     html: 'addStudentsFilePickerDialog.html',
     width: 800,
     height: 600
@@ -353,6 +354,15 @@ var DIALOG_SETUP_CREATE_CONTACTS = {
   },
   command: 'setupCreateContacts',
   error_msg: 'Unable to access contacts. Please try again.'
+};
+var DIALOG_ASSIGNMENTS_CREATE_TEMPLATES = {
+  alert: {
+    alertType: PROMPT,
+    msg: 'This will create a blank document for each of the students in the current gradebook, based on a paper template designed to look nicer than the MLA format. If this is what you wish to do, enter the name of this assignment (each file will be named "Student Name [section] - Assignment Name"):',
+    title: 'Create Paper Templates'
+  },
+  command: 'assignmentsCreatePaperTemplates',
+  error_msg: 'Unable to create new files. Please try again.'
 };
 
 /**
@@ -374,6 +384,22 @@ var ERROR_TRACKING = true; // determines whether errors are sent to the error tr
 var ERROR_TRACKING_SHEET_NAME = 'Errors';
 var INSTALL_TRACKING = true; // determine whether errors are sent to the install tracking spreadsheet
 var INSTALL_TRACKING_SHEET_NAME = 'Installs';
+
+/**
+ * Text for the pre-formatted document templates used for student papers.
+ */
+var TEMPLATE_TITLE = 'This is the Thematic Title of My Paper: This is the Explanatory Subtitle of My Paper';
+var TEMPLATE_PARAGRAPHS = [
+  'This is the only document file you need for this assignment. Replace this text with your own writing, come up with your own title, and make sure the Works Cited is correct.',
+  'Do not alter the formatting of this document. You do not need to create a heading, center your title, indent your paragraphs, double-space, or change the margins of your works cited—it’s all done for you already.',
+  'You do not need to put your name, the date, etc. at the top of this document or add space between the end of your paper and your works cited. Seriously, I thought of everything!'
+];
+var TEMPLATE_WORKS_CITED = {
+  author: 'Fredrickson, Barbara. ',
+  title: 'Selections from Love 2.0: How Our Supreme Emotion Affects Everything We Feel, Think, Do, and Become. ',
+  volume: 'The New Humanities Reader. ',
+  info: '5th ed. Stamford, CT: Cengage, 2015. 105–128. Print.'
+};
 
 
 // TRIGGER FUNCTIONS
@@ -410,6 +436,7 @@ function onOpen() {
         .addItem('Create or update folder structure for this section...', 'exposifySetupCreateFolderStructure')
         .addItem('Share folders with students...', 'exposifySetupShareFolders'))
       .addSubMenu(ui.createMenu('Assignments')
+        .addItem('Create paper templates for students...', 'exposifyCreatePaperTemplates')
         .addItem('Copy assignments for grading...', 'exposifyAssignmentsCopy')
         .addItem('Return graded assignments...', 'exposifyAssignmentsReturn')
         .addItem('Calculate word counts...', 'exposifyAssignmentsCalcWordCounts')
@@ -528,6 +555,7 @@ function Exposify() {
   var okCancel_ = ui_.ButtonSet.OK_CANCEL;
   var yes_ = ui_.Button.YES;
   var yesNo_ = ui_.ButtonSet.YES_NO;
+  var prompt_ = ui_.Button.OK;
   // Protected methods
   /**
    * Return the active Spreadsheet object.
@@ -584,7 +612,8 @@ function Exposify() {
     ok: ok_,
     okCancel: okCancel_,
     yes: yes_,
-    yesNo: yesNo_
+    yesNo: yesNo_,
+    prompt: prompt_
     };
   // Initialization procedures
   spreadsheet_.setSpreadsheetTimeZone(TIMEZONE); // sets the default time zone to the value stored by TIMEZONE
@@ -606,10 +635,11 @@ function Exposify() {
 function exposifySetupNewGradebook() { expos.executeMenuCommand.call(expos, DIALOG_SETUP_NEW_GRADEBOOK); }
 function exposifySetupAddStudents() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_ADD_STUDENTS); }
 function exposifySetupCreateContacts() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_CREATE_CONTACTS); }
-function exposifyAssignmentsCalcWordCounts() { return expos.checkSheetStatus.call(expos, {command: 'assignmentsCalcWordCounts'}); }
-function exposifyFormatSwitchStudentNames() { return expos.checkSheetStatus.call(expos, {command: 'formatSwitchStudentNames', error_msg: ERROR_FORMAT_SWITCH_STUDENT_NAMES}); }
-function exposifyFormatSetShadedRows() { return expos.checkSheetStatus.call(expos, {command: 'formatSetShadedRows', error_msg: ERROR_FORMAT_SET_SHADED_ROWS}); }
-function exposifyHelp() { return expos.executeMenuCommand.call(expos, {command: 'help'}); }
+function exposifyCreatePaperTemplates() { expos.checkSheetStatus.call(expos, DIALOG_ASSIGNMENTS_CREATE_TEMPLATES); }
+function exposifyAssignmentsCalcWordCounts() { expos.checkSheetStatus.call(expos, {command: 'assignmentsCalcWordCounts'}); }
+function exposifyFormatSwitchStudentNames() { expos.checkSheetStatus.call(expos, {command: 'formatSwitchStudentNames', error_msg: ERROR_FORMAT_SWITCH_STUDENT_NAMES}); }
+function exposifyFormatSetShadedRows() { expos.checkSheetStatus.call(expos, {command: 'formatSetShadedRows', error_msg: ERROR_FORMAT_SET_SHADED_ROWS}); }
+function exposifyHelp() { expos.executeMenuCommand.call(expos, {command: 'help'}); }
 
 // old functions to be replaced
 function exposifySetupCreateFolderStructure() { return expos.setupCreateFolderStructure(); }
@@ -654,7 +684,7 @@ Exposify.prototype.alert = function(confirmation) {
     if (!confirmation.hasOwnProperty('alertType')) {
       return this.doMakeAlert({alertType: OK, msg: confirmation.msg}); // A simple alert with an OK button is the default
     } else if (!this.alertUi.hasOwnProperty(confirmation.alertType)) {
-      var e = 'Alert type ' + confirmation.alertType + 'is not defined on Exposify.';
+      var e = 'Alert type ' + confirmation.alertType + ' is not defined on Exposify.';
       throw e // Throw an exception if the alert type doesn't exist, probably superfluous error checking
     } else {
       var alertFunction = this.doMakeAlert(confirmation); // Factor out the alert composition
@@ -726,6 +756,33 @@ Exposify.prototype.assignmentsCalcWordCountsGetTitle = function() {
     return title;
   } catch(e) { this.logError('Exposify.prototype.assignmentsCalcWordCountsGetTitle', e); }
 } // end Exposify.prototype.assignmentsCalcWordCountsGetTitle
+
+
+/**
+ * Create Google Docs files for students to use as templates for their assignments.
+ */
+Exposify.prototype.assignmentsCreatePaperTemplates = function(assignment) {
+  try {
+    var spreadsheet = this.getActiveSpreadsheet();
+    var sheet = this.getActiveSheet();
+    var that = this;
+    var students = this.getStudentNames(sheet);
+    var folder = this.getCourseFolder(sheet);
+    var section = this.getSectionTitle(sheet);
+    var files = [];
+    students.forEach(function(student) {
+      var fileName = student + ' ' + section + ' - ' + assignment;
+      var document = that.doMakeNewTemplate(fileName);
+      var id = document.getId();
+      files.push(DriveApp.getFileById(id));
+    });
+    files.forEach(function(file) {
+      folder.addFile(file);
+      DriveApp.removeFile(file);
+    });
+    spreadsheet.toast(ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS.replace('$', section), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
+  } catch(e) { this.logError('Exposify.prototype.assignmentsCreatePaperTemplates', e); }
+} // end Exposify.prototype.assignmentsCreatePaperTemplates
 
 
 /**
@@ -922,13 +979,14 @@ Exposify.prototype.doMakeAlert = function(confirmation) {
     var yes = alertUi.yes;
     var okCancel = alertUi.okCancel;
     var yesNo = alertUi.yesNo;
+    var prompt = alertUi.prompt;
     var alerts = { // Map alert functions to different alert types
       ok: function() { return ui.alert(title, msg, ok); },
       okCancel: function() { return (ui.alert(title, msg, okCancel)) === ok ? true : false; },
       yesNo: function() { return (ui.alert(title, msg, yesNo)) === yes ? true : false; },
       prompt: function() {
         var response = ui.prompt(title, msg, okCancel);
-        return response.getSelectedButton() === ok ? response.getResponseText() : false;
+        return response.getSelectedButton() === prompt ? response.getResponseText() : false;
       }
     };
     var dialog = alerts[alertType]; // Create a function using the closures stored in the {@code alerts} variable.
@@ -1035,6 +1093,50 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
     return daysToMeet; // an array of text dates ready to be inserted directly into the spreadsheet
   } catch(e) { this.logError('Exposify.prototype.doMakeSchedule', e); }
 } // end Exposify.prototype.doMakeSchedule
+
+
+/**
+ * Make a new Google Docs file for use as a paper template.
+ * @param {string} title - The title of the Docs file.
+ * @return {Document} - The Google Apps Document object.
+ */
+Exposify.prototype.doMakeNewTemplate = function(title) {
+  try {
+    var styles = {};
+    styles[DocumentApp.Attribute.BOLD] = false;
+    styles[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT] = DocumentApp.HorizontalAlignment.LEFT;
+    styles[DocumentApp.Attribute.LINE_SPACING] = 1.29;
+    styles[DocumentApp.Attribute.SPACING_AFTER] = 11.5;
+    styles[DocumentApp.Attribute.INDENT_FIRST_LINE] = 0;
+    var bodyStyles = {}
+    bodyStyles[DocumentApp.Attribute.FONT_FAMILY] = 'Garamond';
+    bodyStyles[DocumentApp.Attribute.FONT_SIZE] = 12;
+    bodyStyles[DocumentApp.Attribute.MARGIN_BOTTOM] = 144;
+    bodyStyles[DocumentApp.Attribute.MARGIN_LEFT] = 108;
+    bodyStyles[DocumentApp.Attribute.MARGIN_RIGHT] = 144;
+    bodyStyles[DocumentApp.Attribute.MARGIN_TOP] = 144;
+    var indent = {}
+    indent[DocumentApp.Attribute.INDENT_START] = 18;
+    var that = this;
+    var document = DocumentApp.create(title);
+    var body = document.getBody();
+    body.setAttributes(bodyStyles);
+    var title = body.getParagraphs()[0].editAsText();
+    title.setAttributes(styles);
+    title.setText(TEMPLATE_TITLE).setBold(true);
+    var bodyText = TEMPLATE_PARAGRAPHS;
+    bodyText.forEach(function(paragraph) {
+      var bodyParagraph = body.appendParagraph(paragraph).editAsText();
+      bodyParagraph.setAttributes(styles);
+    });
+    body.appendParagraph('Works Cited').setAttributes(styles);
+    var worksCited = body.appendParagraph(TEMPLATE_WORKS_CITED.author + TEMPLATE_WORKS_CITED.title);
+    worksCited.appendText(TEMPLATE_WORKS_CITED.volume).setItalic(true);
+    worksCited.appendText(TEMPLATE_WORKS_CITED.info).setItalic(false);
+    worksCited.editAsText().setAttributes(styles).setAttributes(indent);
+    return document;
+  } catch(e) { this.logError('Exposify.prototype.doMakeNewTemplate', e); }
+} // end Exposify.prototype.doMakeNewTemplate
 
 
 /**
@@ -1216,6 +1318,7 @@ Exposify.prototype.executeMenuCommand = function(params) {
       var that = this; // have I told you lately that I love JavaScript?
       var commands = {
         setupCreateContacts: function() { that.setupCreateContacts(that.getActiveSheet()); },
+        assignmentsCreatePaperTemplates: function() { that.assignmentsCreatePaperTemplates(response); },
         assignmentsCalcWordCounts: function() { that.showHtmlSidebar(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS); },
         formatSwitchStudentNames: function() { that.doSwitchStudentNames(that.getActiveSheet()); },
         formatSetShadedRows: function() { that.doSetShadedRows(that.getActiveSheet()); },
@@ -1613,7 +1716,8 @@ Exposify.prototype.getWordCounts = function(sheet, re) {
     var counts = [];
     filtered.forEach( function(file) {
       var doc = DocumentApp.openById(file.getId()).getBody().getText();
-      count = doc.split(/\s+/g).length; // simple word count
+      var worksCitedRe = /Works Cited(\s|.)+/; // regular expression to find and remove Works Cited from word count
+      var count = doc.replace(worksCitedRe, '').split(/\s+/g).length; // simple word count, but delete the Works Cited first
       var lastUpdated = file.getLastUpdated(); // last time the file was updated, useful to know
       var formattedDate = lastUpdated.getMonth() + '/' + lastUpdated.getDate() + '/' + lastUpdated.getFullYear();
       counts.push({document: file.getName(), count: count, lastUpdated: formattedDate});
