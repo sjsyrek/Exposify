@@ -50,10 +50,11 @@
 //TODO: automatically produce warning rosters and final gradebooks
 //TODO: make error messages more informative
 //TODO: make sure error logging is correct format
-//TODO: fix JSDoc param comments
+//TODO: revise comments
 //TODO: make it possible to specify the maximum number of students in a course
 //TODO: make sure internal functions that reference this actually work
 //TODO: add titles to alerts
+//TODO: consider removing sheet parameters from all functions
 
 
 /**
@@ -106,7 +107,10 @@ var MIME_TYPE_GOOGLE_SHEET = 'application/vnd.google-apps.spreadsheet';
 /**
  * Default text to display for various alert messages throughout the application.
  */
+var ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS = 'New document files successfully created for the students in section $.';
+var ALERT_EDIT_HEADER_WARNING = 'Please do not edit the first two rows and columns of this spreadsheet. Doing so will break Exposify! If you changed these values, you might want to change them back. Thank you!';
 var ALERT_INSTALL_THANKS = 'Thanks for installing Exposify! Add a new section by selecting \"Setup New Expos Section\" in the Exposify menu.';
+var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. Do that before anything else.';
 var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '\'$\' successfully imported! You should double-check the spreadsheet to make sure it\'s correct.';
 var ALERT_SETUP_CREATE_CONTACTS_SUCCESS = 'New contact group successfully created for $.';
 var ALERT_SETUP_CREATE_FOLDER_STRUCTURE = 'This command will create or update the folder structure for your Expos section, including a shared coursework folder and individual folders for each student based on this sheet. Do you wish to proceed?';
@@ -117,8 +121,6 @@ var ALERT_SETUP_SHARE_FOLDERS_MISSING_GRADED_FOLDER = 'There is no folder for gr
 var ALERT_SETUP_SHARE_FOLDERS_SUCCESS = 'The folders were successfully shared!';
 var ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS = 'A gradebook for section $ already exists. If you want to overwrite it, make it the active spreadsheet and try again.';
 var ALERT_SETUP_NEW_GRADEBOOK_SUCCESS = 'New gradebook created for $.';
-var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. Do that before anything else.';
-var ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS = 'New document files successfully created for the students in section $.';
 
 var TOAST_DISPLAY_TIME = 10; // how long should the little toast window linger before disappearing
 var TOAST_TITLE = 'Success!' // toast window title
@@ -363,6 +365,24 @@ var DIALOG_ASSIGNMENTS_CREATE_TEMPLATES = {
   command: 'assignmentsCreatePaperTemplates',
   error_msg: 'Unable to create new files. Please try again.'
 };
+var DIALOG_ADMIN_WARNING_ROSTER = {
+  dialog: {
+    title: 'Generate Warning Roster',
+    html: 'adminWarningRoster.html',
+    width: 525,
+    height: 450
+  },
+  error_msg: 'There was a problem. Please try again.'
+};
+DIALOG_ADMIN_GRADEBOOK = {
+  alert: {
+    alertType: YES_NO,
+    msg: 'This will create a gradebook file from the relevant data on this sheet in Excel-compatible format for submission to the appropriate authorities. The file will be placed in your root Drive folder. Is that what you want to do?',
+    title: 'Generate Final Gradebook'
+  },
+  command: 'adminGenerateGradebook',
+  error_msg: 'There was a problem. Please try again.'
+};
 
 /**
  * These templates are used for the sidebars displayed when a user selects the associated menu options
@@ -440,6 +460,9 @@ function onOpen() {
         .addItem('Return graded assignments...', 'exposifyAssignmentsReturn')
         .addItem('Calculate word counts...', 'exposifyAssignmentsCalcWordCounts')
         .addItem('Compare rough and final drafts for selected student...', 'exposifyAssignmentsCompareDrafts'))
+      .addSubMenu(ui.createMenu('Administration')
+        .addItem('Generate warning roster for this section...', 'exposifyAdminGenerateWarningRoster')
+        .addItem('Generate final gradebook for this section...', 'exposifyAdminGenerateGradebook'))
       .addSubMenu(ui.createMenu('Format')
         .addItem('Switch order of student names', 'exposifyFormatSwitchStudentNames')
         .addItem('Refresh shading of alternating rows', 'exposifyFormatSetShadedRows'))
@@ -450,6 +473,21 @@ function onOpen() {
     expos.logError('onOpen', e);
   }
 } // end onOpen
+
+
+/**
+ * Warn the user not to edit the name of the course or the semester, lest none of the other Exposify
+ * functions work as intended.
+ * @param {EventObject}
+ */
+function onEdit(e) {
+  var sheet = expos.getActiveSheet();
+  var range = e.range;
+  if (range.getRowIndex() < 3 && range.getColumn() < 3) {
+    var msg = ALERT_EDIT_HEADER_WARNING;
+    expos.alert({msg: msg})();
+  }
+} // end onEdit
 
 
 // CONSTRUCTORS
@@ -636,6 +674,8 @@ function exposifySetupAddStudents() { expos.checkSheetStatus.call(expos, DIALOG_
 function exposifySetupCreateContacts() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_CREATE_CONTACTS); }
 function exposifyCreatePaperTemplates() { expos.checkSheetStatus.call(expos, DIALOG_ASSIGNMENTS_CREATE_TEMPLATES); }
 function exposifyAssignmentsCalcWordCounts() { expos.checkSheetStatus.call(expos, {command: 'assignmentsCalcWordCounts'}); }
+function exposifyAdminGenerateWarningRoster() { expos.checkSheetStatus.call(expos, DIALOG_ADMIN_WARNING_ROSTER); }
+function exposifyAdminGenerateGradebook() { expos.checkSheetStatus.call(expos, DIALOG_ADMIN_GRADEBOOK); }
 function exposifyFormatSwitchStudentNames() { expos.checkSheetStatus.call(expos, {command: 'formatSwitchStudentNames', error_msg: ERROR_FORMAT_SWITCH_STUDENT_NAMES}); }
 function exposifyFormatSetShadedRows() { expos.checkSheetStatus.call(expos, {command: 'formatSetShadedRows', error_msg: ERROR_FORMAT_SET_SHADED_ROWS}); }
 function exposifyHelp() { expos.executeMenuCommand.call(expos, {command: 'help'}); }
@@ -958,6 +998,17 @@ Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
   } catch(e) { this.logError('Exposify.prototype.doFormatSheetAddAttendanceRecord', e); }
 } // end Exposify.prototype.doFormatSheetAddAttendanceRecord
 
+
+Exposify.prototype.doGenerateGradebook = function() {
+  var courseNumber = this.getCourseNumber();
+  Logger.log(courseNumber);
+  Logger.log(COURSE_FORMATS[courseNumber].name);
+  Logger.log(COURSE_FORMATS[courseNumber].columns.length);
+//var id = '1BD0SvFBCuucYN_fnJDjYSbn_se7H1Vm6n_OkQkKyvHs';
+//var url = 'https://docs.google.com/feeds/';
+//var doc = UrlFetchApp.fetch(url+'download/spreadsheets/Export?key='+id+'&exportFormat=xls').getBlob();
+//DriveApp.createFile(doc);
+}
 
 /**
  * Create an alert dialog box to be displayed to the user. The alert is comprised of an alert type, which should be
@@ -1320,6 +1371,7 @@ Exposify.prototype.executeMenuCommand = function(params) {
         setupCreateContacts: function() { that.setupCreateContacts(that.getActiveSheet()); },
         assignmentsCreatePaperTemplates: function() { that.assignmentsCreatePaperTemplates(response); },
         assignmentsCalcWordCounts: function() { that.showHtmlSidebar(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS); },
+        adminGenerateGradebook: function() { that.doGenerateGradebook(); },
         formatSwitchStudentNames: function() { that.doSwitchStudentNames(that.getActiveSheet()); },
         formatSetShadedRows: function() { that.doSetShadedRows(that.getActiveSheet()); },
         help: function() { that.showHtmlSidebar(SIDEBAR_HELP); }
@@ -1425,7 +1477,7 @@ Exposify.prototype.getCourseData = function(course) {
 
 /**
  * Get the course folder for the gradebook on the active spreadsheet.
- * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated course folder
+ * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated course folder.
  */
 Exposify.prototype.getCourseFolder = function(sheet) {
   try {
@@ -1434,6 +1486,25 @@ Exposify.prototype.getCourseFolder = function(sheet) {
     return folderIter.hasNext() ? folderIter.next() : null; // return the first match found
   } catch(e) { this.logError('Exposify.prototype.getCourseFolder', e); }
 } // end Exposify.prototype.getCourseFolder
+
+
+/**
+ * Look up and return the course number for this course, based on its name in the spreadsheet.
+ * @return {string} courseNumber - The course number.
+ */
+Exposify.prototype.getCourseNumber = function() {
+  try {
+    var sheet = this.getActiveSheet();
+    var title = this.getCourseTitle(sheet);
+    var section = this.getSectionTitle(sheet);
+    var name = title.replace(section, '').trim();
+    var numbers = Object.getOwnPropertyNames(COURSE_FORMATS);
+    var courses = numbers.map(function(number) { return COURSE_FORMATS[number].name; } );
+    var index = courses.indexOf(name);
+    var courseNumber = numbers[index];
+    return courseNumber;
+  } catch(e) { this.logError('Exposify.prototype.getCourseNumber', e); }
+} // end Exposify.prototype.getCourseNumber
 
 
 /**
@@ -2239,3 +2310,13 @@ function test1() {
   var type = DriveApp.getFileById('1b9fEFuDMXd8c4e1_AvBRY-055Z1uR0pvrOVwTgEm5eE').getMimeType();
   Logger.log(type);
 }
+
+/**
+ * Test a function defined on the Exposify prototype and log the return value.
+ */
+function exposifyTest() {
+  var testFunction = 'getCourseNumber';
+  var functions = Exposify.prototype;
+  var returnValue = functions[testFunction].call(expos);
+  Logger.log(returnValue);
+} // end exposifyTest
