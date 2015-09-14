@@ -2,93 +2,94 @@
 Modal dialog box for Exposify.gs called from exposifySetupAddStudents()
 Copied with some modifications from: https://developers.google.com/apps-script/guides/dialogs#file-open_dialogs -->
 
-<link rel='stylesheet' href='https://ssl.gstatic.com/docs/script/css/add-ons.css'>
+<link rel='stylesheet' href='https://ssl.gstatic.com/docs/script/css/add-ons.css'> <!-- stylesheet for Google Picker -->
 <script type='text/javascript'>
   
-  var DIALOG_DIMENSIONS = {width: 800, height: 600};
+  var DIALOG_DIMENSIONS = {width: 800, height: 600}; // size of the dialog box to display
   var pickerApiLoaded = false;
 
   /**
-   * Loads the Google Picker API.
+   * Load the Google Picker API.
    */
   function onApiLoad() {
-    gapi.load('picker', {'callback': function() {
+    gapi.load('picker', {'callback': function() { // trigger to load the Google Picker API, called from the bottom of this file
       pickerApiLoaded = true;
     }});
-   }
+   } // end onApiLoad
 
   /**
-   * Gets the user's OAuth 2.0 access token from the server-side script so that
+   * Get the user's OAuth 2.0 access token from the server-side script so that
    * it can be passed to Picker. This technique keeps Picker from needing to
    * show its own authorization dialog, but is only possible if the OAuth scope
    * that Picker needs is available in Apps Script. Otherwise, your Picker code
-   * will need to declare its own OAuth scopes.
+   * will need to declare its own OAuth scopes. Called from the script at the
+   * bottom of this file.
    */
   function getOAuthToken() {
     google.script.run.withSuccessHandler(createPicker)
         .withFailureHandler(showError).getOAuthToken();
-  }
+  } // end getOAuthToken
 
   /**
-   * Creates a Picker that can access the user's spreadsheets. This function
+   * Create a Picker that can access the user's spreadsheets. This function
    * uses advanced options to hide the Picker's left navigation panel and
-   * default title bar.
-   *
-   * @param {string} token An OAuth 2.0 access token that lets Picker access the
-   *     file type specified in the addView call.
+   * default title bar and only displays csv and Google Sheets documents. Called
+   * from getOAuthToken() above if it returns successfully.
+   * @param {Object} data - An object containing the OAuth token and developer key.
+   * @param {string} data.token - An OAuth 2.0 access token that lets Picker access the
+   *   file type specified in the addView call.
+   * @param {string} data.key - The developer key used to call this function.
    */
   function createPicker(data) {
     var token = data.token;
     var key = data.key;
     if (pickerApiLoaded && token) {
+      var view = new google.picker.View(google.picker.ViewId.DOCS)
+        .setMimeTypes('application/vnd.google-apps.spreadsheet,text/csv'); // only display csv and spreadsheet files
       var picker = new google.picker.PickerBuilder()
           .setOrigin('https://docs.google.com')
-          // Instruct Picker to display all files in Drive (so we can find CSV files). For other
-          // views, see https://developers.google.com/picker/docs/#otherviews
-          .addView(google.picker.ViewId.DOCS)
-          // Hide the navigation panel so that Picker fills more of the dialog.
-          .enableFeature(google.picker.Feature.NAV_HIDDEN)
-          // Hide the title bar since an Apps Script dialog already has a title.
-          //.hideTitleBar()
+          .addView(view)
+          .enableFeature(google.picker.Feature.NAV_HIDDEN) // hide the navigation panel so that Picker fills more of the dialog.
           .setTitle('Select the CSV or Google Sheets file that contains your unmodified roster')
           .setOAuthToken(token)
           .setDeveloperKey(key)
           .setCallback(pickerCallback)
-          // Instruct Picker to fill the dialog, minus 2 pixels for the border.
           .setSize(DIALOG_DIMENSIONS.width - 2,
-              DIALOG_DIMENSIONS.height - 2)
+             DIALOG_DIMENSIONS.height - 2) // instruct Picker to fill the dialog, minus 2 pixels for the border.
           .build();
-      picker.setVisible(true);
+      picker.setVisible(true); // display the dialog box to the user
     } else {
       showError('There\'s a problem. I can\'t seem to load the open file dialog box. Try again later.');
     }
-  }
+  } // end createPicker
 
   /**
-   * A callback function that extracts the chosen document's metadata from the
-   * response object. For details on the response object, see
-   * https://developers.google.com/picker/docs/result
-   *
-   * @param {object} data The response object.
+   * Extract the chosen document's metadata from the response object and return data to
+   * the server for processing.
+   * @param {Object} data - The response object.
    */
   function pickerCallback(data) {
     var action = data[google.picker.Response.ACTION];
     if (action === google.picker.Action.PICKED) {
-      var doc = data[google.picker.Response.DOCUMENTS][0];
-      var id = doc[google.picker.Document.ID];
+      var doc = data[google.picker.Response.DOCUMENTS][0]; // the selected document
+      var id = doc[google.picker.Document.ID]; // the id of the selected document
       google.script.run.setupAddStudentsCallback(id); // return selected file to server script
       google.script.host.close(); // close dialog box
     } else if (action === google.picker.Action.CANCEL) {
       google.script.host.close();
     }
-  }
+  } // end pickerCallback
 
+
+  /**
+   * Display an error message in the event something goes wrong.
+   */
   function showError(message) {
     document.getElementById('result').innerHTML = message;
   }
   
 </script>
 <div>
-  <script>getOAuthToken();</script>
-  <script src="https://apis.google.com/js/api.js?onload=onApiLoad"></script>
+  <script>getOAuthToken();</script> <!-- execute this function first to start the control flow -->
+  <script src="https://apis.google.com/js/api.js?onload=onApiLoad"></script> <!-- Run this code when the dialog is loaded -->
 </div>
