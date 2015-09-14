@@ -134,7 +134,8 @@ var ERROR_SETUP_CREATE_FOLDER_STRUCTURE = 'There was a problem creating the fold
 var ERROR_SETUP_SHARE_FOLDERS = 'There was a problem sharing the folders. Please try again.';
 var ERROR_ASSIGNMENTS_CALC_WORD_COUNTS = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command.';
 
-/* The COURSE_FORMATS object literal contains the basic data used to format Exposify gradebooks,
+/**
+ * The COURSE_FORMATS object literal contains the basic data used to format Exposify gradebooks,
  * depending on the course selected. Altering these could have unpredictable effects on the application,
  * though new course formats can be added (use the 'O' object, for 'Other' courses, as a model). The template
  * is used to format the height of rows, the width of columns, to set the course name and column headings,
@@ -265,12 +266,12 @@ var COURSE_FORMATS = {
         rangeToValidate: ['M4:M25']
       },
       /**
-							* Package and return grade validation data as an object with two fields for both the non-numeric
-							* and numeric data validations specified for this course.
-							* @return {Object}
-							* @return {Array} Object.nonNumeric - The non-numeric grade validations.
-							* @return {Array} Object.numeric - The numeric grade validations.
-							*/
+       * Package and return grade validation data as an object with two fields for both the non-numeric
+       * and numeric data validations specified for this course.
+       * @return {Object}
+       * @return {Array} Object.nonNumeric - The non-numeric grade validations.
+       * @return {Array} Object.numeric - The numeric grade validations.
+       */
       getGradeValidations: function() {
         var nonNumeric = [this.finalGrades];
         var numeric = [this.numericGrades];
@@ -291,7 +292,8 @@ var COURSE_SHORT_TITLES = {
   Default: 'Course'
 };
 
-/* The SUMMER_SESSIONS object literal is a slightly obtuse way of storing information about the slightly obtuse summer session schedule.
+/**
+ * The SUMMER_SESSIONS object literal is a slightly obtuse way of storing information about the slightly obtuse summer session schedule.
  * The order is: day of the week the session starts (0–6), month the session starts (0–12), date counting from 1 on which the session
  * would start if the first day of the month were the same day of the week as the day the session starts, how long the course is in weeks
  */
@@ -770,6 +772,7 @@ Exposify.prototype.assignmentsCreatePaperTemplates = function(assignment) {
     students.forEach(function(student) {
       var fileName = student + ' ' + section + ' - ' + assignment;
       var document = that.doMakeNewTemplate(fileName);
+      Utilities.sleep(100); // just in case
       var id = document.getId();
       files.push(DriveApp.getFileById(id));
     });
