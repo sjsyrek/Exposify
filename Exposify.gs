@@ -45,12 +45,9 @@
 //TODO: add all functions to Exposify.prototype
 //TODO: make sure every function has error checking blocks
 //TODO: make sure all alerts actually call alert();
-//TODO: generalize word counts so user can enter a custom value (default 1700 is ok)
 //TODO: folder structure, folder sharing, collecting and returning assignments
 //TODO: finish paper comparison diff function
-//TODO: automatically create templates for Docs
 //TODO: automatically produce warning rosters and final gradebooks
-//TODO: autotmatically add students to Contacts
 //TODO: make error messages more informative
 //TODO: make sure error logging is correct format
 //TODO: fix JSDoc param comments
@@ -1849,6 +1846,7 @@ Exposify.prototype.setupAddStudents = function(id) {
  */
 Exposify.prototype.setupCreateContacts = function(sheet) {
   try {
+    var spreadsheet = this.getActiveSpreadsheet();
     var students = this.getStudents(sheet);
     var allContacts = ContactsApp.getContactsByEmailAddress(EMAIL_DOMAIN);
     var allContactsEmails = allContacts.map(function(contact) { return contact.getEmails()[0].getAddress(); }); // try to save time by reducing API calls
@@ -1868,9 +1866,9 @@ Exposify.prototype.setupCreateContacts = function(sheet) {
         var contact = ContactsApp.getContact(student.email);
       }
       contactGroup.addContact(contact); // this is slow :(
+      Utilities.sleep(100); // and I have to make it slower to avoid quota exceptions
     });
-    var msg = ALERT_SETUP_CREATE_CONTACTS_SUCCESS.replace('$', contactGroupTitle); // '$' is replaced with the name of the contact group
-    this.alert({msg: msg})();
+    spreadsheet.toast(ALERT_SETUP_CREATE_CONTACTS_SUCCESS.replace('$', contactGroupTitle), TOAST_TITLE, TOAST_DISPLAY_TIME); // '$' is replaced with the name of the contact group
   } catch(e) { this.logError('Exposify.prototype.setupCreateContacts', e); }
 } // end Exposify.prototype.setupCreateContacts
 
