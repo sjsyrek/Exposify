@@ -770,6 +770,7 @@ Exposify.prototype.arrayContains = function(arr, item) {
 
 /**
  * Return word counts for the set of files specified by the user.
+ * @param {Sheet} sheet - The Sheet object.
  * @param {Object} params - An object containing the parameters passed to the callback function.
  * @param {string} params.students - Either "selected" or "all," the option to search all papers or a subset.
  * @param {string} params.filter - The filter for the files, optionally entered by the user.
@@ -801,6 +802,7 @@ Exposify.prototype.assignmentsCalcWordCounts = function(sheet, params) {
 /**
  * Retrieve the title of the course and number of students enrolled for use in the
  * word counts sidebar.
+ * @param {Sheet} sheet - The Sheet object.
  * @return {string} title - The course title and enrollment figure.
  */
 Exposify.prototype.assignmentsCalcWordCountsGetTitle = function(sheet) {
@@ -814,6 +816,8 @@ Exposify.prototype.assignmentsCalcWordCountsGetTitle = function(sheet) {
 
 
 /**
+ * @param {Sheet} sheet - The Sheet object.
+ * @param {string} assignment - The name of the assignment to use in the template filename.
  * Create Google Docs files for students to use as templates for their assignments.
  */
 Exposify.prototype.assignmentsCreatePaperTemplates = function(sheet, assignment) {
@@ -908,11 +912,14 @@ Exposify.prototype.createHtmlDialogFromText = function(dialog) {
 
 /**
  * Insert student names into the spreadsheet.
- * @param {Array} students - A list of Student objects containing the data to add to the spreadsheet.
- * @param {Sheet} sheet - A Google Apps Sheet object, the sheet to which names will be added.
+ * @param {Object} params - Object containing the function parameters.
+ * @param {Array} params.students - A list of Student objects containing the data to add to the spreadsheet.
+ * @param {Sheet} params.sheet - A Google Apps Sheet object, the sheet to which names will be added.
  */
-Exposify.prototype.doAddStudents = function (students, sheet) {
+Exposify.prototype.doAddStudents = function (params) {
   try {
+    var sheet = params.sheet;
+    var students = params.students;
     var studentList = [];
     var fullRange = sheet.getRange(4, 1, MAX_STUDENTS, 2);
     fullRange.clearContent(); // erase whatever data is already on the sheet where we put student names
@@ -1040,6 +1047,7 @@ Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
 /**
  * Create a new Google Sheets file using only the gradebook portion of the active sheet,
  * for downloading in another format.
+ * @param {Sheet} sheet - The Sheet object.
  */
 Exposify.prototype.doGenerateGradebook = function(sheet) {
   try {
@@ -1254,14 +1262,18 @@ Exposify.prototype.doMakeNewTemplate = function(title) {
  * from the Site Info page of a Sakai course site. This function will only work if that file has been unmodified.
  * This function works whether or not the file has been converted from csv (comma separated values) format
  * into Google Sheets format. Returns an array of Student objects with which to populate the spreadsheet gradebook.
- * @param {string} id - The id of the Google Apps File object to open.
- * @param {string} mimeType - The mimeType of the Google Apps File object to open.
+ * @param {Object} params - Object containing the function parameters.
+ * @param {Sheet} params.sheet - The Sheet object.
+ * @param {string} params.id - The id of the Google Apps File object to open.
+ * @param {string} params.mimeType - The mimeType of the Google Apps File object to open.
  * @return {Array} students - A list of Student objects, the students to add to the gradebook.
  */
-Exposify.prototype.doParseSpreadsheet = function(id, mimeType) {
+Exposify.prototype.doParseSpreadsheet = function(params) {
   try {
+    var sheet = params.sheet;
+    var id = params.id;
+    var mimeType = params.mimeType;
     var students = [];
-    var sheet = this.sheet;
     var section = this.getSectionTitle(sheet);
     if (mimeType === 'application/vnd.google-apps.spreadsheet') {
       var file = SpreadsheetApp.openById(id); // open file to retrieve data
@@ -1352,7 +1364,8 @@ Exposify.prototype.doSwitchStudentNames = function(sheet) {
         students[i].name = this.getNameLastFirst(name);
       }
     }
-    this.doAddStudents(students, sheet); // repopulate the sheet with the student names
+    var params = {sheet: sheet, students: students};
+    this.doAddStudents(params); // repopulate the sheet with the student names
     sheet.sort(1); // sort sheet alphabetically
     this.doSetShadedRows(sheet); // because the sort will probably mess them up
   } catch(e) { this.logError('Exposify.prototype.doSwitchStudentNames', e); }
@@ -1951,6 +1964,7 @@ Exposify.prototype.setSheetStatus = function(sheet) {
 /**
  * Convert a CSV or Google Sheets file into a list of student names and add them to the
  * gradebook.
+ * @param {Sheet} sheet - The Sheet object.
  * @param {string} id - The file id of the file from which to extract student names.
  */
 Exposify.prototype.setupAddStudents = function(sheet, id) {
@@ -1961,9 +1975,11 @@ Exposify.prototype.setupAddStudents = function(sheet, id) {
     var filename = file.getName();
     var students = [];
     if (mimeType === MIME_TYPE_GOOGLE_SHEET) {
-      students = this.doParseSpreadsheet(id, MIME_TYPE_GOOGLE_SHEET);
+      var params = {sheet: sheet, id: id, mimeType: MIME_TYPE_GOOGLE_SHEET};
+      students = this.doParseSpreadsheet(params);
     } else if (mimeType === MIME_TYPE_CSV) {
-      students = this.doParseSpreadsheet(id, MIME_TYPE_CSV);
+      var params = {sheet: sheet, id: id, mimeType: MIME_TYPE_CSV};
+      students = this.doParseSpreadsheet(params);
     } else {
       var alert = this.alert({msg: ERROR_SETUP_ADD_STUDENTS_INVALID.replace('$', filename)}); // '$' is a wildcard value that is replaced with the filename
       alert();
@@ -1973,7 +1989,8 @@ Exposify.prototype.setupAddStudents = function(sheet, id) {
       var alert = this.alert({msg: ERROR_SETUP_ADD_STUDENTS_EMPTY.replace('$', filename)});
       alert();
     } else {
-      this.doAddStudents(students, sheet);
+      var params = {sheet: sheet, students: students};
+      this.doAddStudents(params);
       spreadsheet.toast(ALERT_SETUP_ADD_STUDENTS_SUCCESS.replace('$', filename), TOAST_TITLE, TOAST_DISPLAY_TIME);
     }
   } catch(e) {
