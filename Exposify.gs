@@ -453,8 +453,8 @@ function onInstall(e) {
  * Exposify menu to the menu bar.
  */
 function onOpen() {
-  var ui = expos.getUi();
-  var menu = expos.getMenu();
+  var ui = expos.ui;
+  var menu = expos.menu;
   try {
     menu
       .addSubMenu(ui.createMenu('Setup')
@@ -490,8 +490,7 @@ function onOpen() {
  * @param {EventObject}
  */
 function onEdit(e) {
-  var sheet = expos.getActiveSheet();
-  var range = e.range;
+  var range = e.range; // the range in which the edit occurred
   if (range.getRowIndex() < 3 && range.getColumn() < 3) {
     var msg = ALERT_EDIT_HEADER_WARNING;
     expos.alert({msg: msg})();
@@ -609,18 +608,28 @@ function Exposify() {
    * @return {Spreadsheet} spreadsheet_ - A Google Apps Spreadsheet object.
    */
   this.getSpreadsheet = function() { return spreadsheet_; };
+  this.spreadsheet = this.getSpreadsheet();
+  /**
+   * Return the active Sheet object.
+   * @protected
+   * @return {Sheet} The Sheet object representing the active sheet.
+   */
+  this.getSheet = function() { return spreadsheet_.getActiveSheet(); }
+  this.sheet = this.getSheet();
   /**
    * Return the Ui object for this spreadsheet.
    * @protected
    * @return {Ui} ui_ - The Ui object for the Spreadsheet object to which Exposify is attached.
    */
   this.getUi = function() { return ui_; };
+  this.ui = this.getUi();
   /**
    * Return the Menu object for this spreadsheet.
    * @protected
    * @return {Menu} menu_ - The Menu object for the Spreadsheet object to which Exposify is attached.
    */
   this.getMenu = function() {return menu_; };
+  this.menu = this.getMenu();
   /**
    * Set the default time zone for the spreadsheet. Return the spreadsheet for chaining.
    * @protected
@@ -630,7 +639,6 @@ function Exposify() {
   this.setTimezone = function(timezone) {
     spreadsheet_.setSpreadsheetTimeZone(timezone);
     return spreadsheet_;
-  this.menu = ui_.createMenu('Exposify');
   };
   /**
    * Display a dialog box to the user.
@@ -767,14 +775,13 @@ Exposify.prototype.arrayContains = function(arr, item) {
  */
 Exposify.prototype.assignmentsCalcWordCounts = function(params) {
   try {
-    var sheet = this.getActiveSheet();
     var students = params.students;
     var filter = params.filter;
     var counts = null;
     if (students === 'selected') {
-      var counts = this.doCalcWordCountsSelected(sheet, filter);
+      var counts = this.doCalcWordCountsSelected(this.sheet, filter);
     } else if (students === 'all') {
-      var counts = this.doCalcWordCountsAll(sheet, filter);
+      var counts = this.doCalcWordCountsAll(this.sheet, filter);
     }
     counts.sort(function (a, b) {
       if (a.document > b.document) {
@@ -797,9 +804,8 @@ Exposify.prototype.assignmentsCalcWordCounts = function(params) {
  */
 Exposify.prototype.assignmentsCalcWordCountsGetTitle = function() {
   try {
-    var sheet = this.getActiveSheet();
-    var courseTitle = this.getCourseTitle(sheet);
-    var enrollment = this.getStudentCount(sheet);
+    var courseTitle = this.getCourseTitle();
+    var enrollment = this.getStudentCount();
     var title = courseTitle + ' (' + enrollment + ' students)';
     return title;
   } catch(e) { this.logError('Exposify.prototype.assignmentsCalcWordCountsGetTitle', e); }
@@ -811,17 +817,15 @@ Exposify.prototype.assignmentsCalcWordCountsGetTitle = function() {
  */
 Exposify.prototype.assignmentsCreatePaperTemplates = function(assignment) {
   try {
-    var spreadsheet = this.getActiveSpreadsheet();
-    var sheet = this.getActiveSheet();
     var that = this;
-    var students = this.getStudentNames(sheet);
-    var folder = this.getCourseFolder(sheet);
-    var section = this.getSectionTitle(sheet);
+    var students = this.getStudentNames();
+    var folder = this.getCourseFolder();
+    var section = this.getSectionTitle();
     var files = [];
     students.forEach(function(student) {
       var fileName = student + ' ' + section + ' - ' + assignment;
       var document = that.doMakeNewTemplate(fileName);
-      Utilities.sleep(100); // just in case
+      Utilities.sleep(100); // just in case we're moving too fast for the server
       var id = document.getId();
       files.push(DriveApp.getFileById(id));
     });
@@ -829,7 +833,7 @@ Exposify.prototype.assignmentsCreatePaperTemplates = function(assignment) {
       folder.addFile(file);
       DriveApp.removeFile(file);
     });
-    spreadsheet.toast(ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS.replace('$', section), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
+    this.spreadsheet.toast(ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS.replace('$', section), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
   } catch(e) { this.logError('Exposify.prototype.assignmentsCreatePaperTemplates', e); }
 } // end Exposify.prototype.assignmentsCreatePaperTemplates
 
@@ -841,8 +845,7 @@ Exposify.prototype.assignmentsCreatePaperTemplates = function(assignment) {
  */
 Exposify.prototype.checkSheetStatus = function(params) {
   try {
-    var sheet = this.getActiveSheet();
-    var check = this.getSheetStatus(sheet);
+    var check = this.getSheetStatus();
     if (check === false) {
       var alert = this.alert({msg: ALERT_NO_GRADEBOOK});
       alert();
@@ -2466,19 +2469,23 @@ Exposify.prototype.fetchFileFromDrive = function(params) {
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+/**
+ * Test a function passed through the Exposify prototype.
+ */
+Exposify.prototype.prototypeTest = function(params) {
+  return {sheet: this.sheet, spreadsheet: this.spreadsheet, ui: this.ui};
+}
 
 /**
  * Test a function defined on the Exposify prototype and log the return value.
  */
 function exposifyTest() {
-  var testFunction = 'getRevisionHistory';
+  var testFunction = 'prototypeTest';
   var params = '18dD1aHHS1jJMIWTFCON0zbRV9zAG64eokNGlz8MJmvA'; // Google Doc to test revision history
   var functions = Exposify.prototype;
   var returnValue = functions[testFunction].call(expos, params);
   Logger.log(returnValue);
 } // end exposifyTest
 
-function constructorTest() {
-  var student = new Student('Steven Syrek', 'ssyrek@');
-  Logger.log(student);
-}
+
+var testDoc = '18dD1aHHS1jJMIWTFCON0zbRV9zAG64eokNGlz8MJmvA';
