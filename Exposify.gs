@@ -454,7 +454,7 @@ function onInstall(e) {
  */
 function onOpen() {
   var ui = expos.ui;
-  var menu = expos.menu;
+  var menu = expos.getMenu();
   try {
     menu
       .addSubMenu(ui.createMenu('Setup')
@@ -490,7 +490,8 @@ function onOpen() {
  * @param {EventObject}
  */
 function onEdit(e) {
-  var range = e.range; // the range in which the edit occurred
+  var sheet = expos.getActiveSheet();
+  var range = e.range;
   if (range.getRowIndex() < 3 && range.getColumn() < 3) {
     var msg = ALERT_EDIT_HEADER_WARNING;
     expos.alert({msg: msg})();
@@ -714,11 +715,11 @@ function exposifyAssignmentsCompareDrafts() { return expos.assignmentsCompareDra
  * functions pass control to other functions that do the actual work. In the future, I may replace
  * these functions with a single callback handler, as with the menu functions, if it's possible.
  */
-function assignmentsCalcWordCountsCallback(params) { return expos.assignmentsCalcWordCounts(params); }
-function assignmentsCalcWordCountsCallbackGetTitle() { return expos.assignmentsCalcWordCountsGetTitle(); }
+function assignmentsCalcWordCountsCallback(params) { return expos.assignmentsCalcWordCounts(expos.sheet, params); }
+function assignmentsCalcWordCountsCallbackGetTitle() { return expos.assignmentsCalcWordCountsGetTitle(expos.sheet); }
 function getOAuthToken() { return expos.getOAuthToken(); }
-function setupNewGradebookCallback(courseInfo) { expos.setupNewGradebook(courseInfo); }
-function setupAddStudentsCallback(id) { expos.setupAddStudents(id); }
+function setupNewGradebookCallback(courseInfo) { expos.setupNewGradebook(expos.sheet, courseInfo); }
+function setupAddStudentsCallback(id) { expos.setupAddStudents(expos.sheet, id); }
 
 
 // EXPOSIFY FUNCTIONS
@@ -773,15 +774,15 @@ Exposify.prototype.arrayContains = function(arr, item) {
  * @param {string} params.students - Either "selected" or "all," the option to search all papers or a subset.
  * @param {string} params.filter - The filter for the files, optionally entered by the user.
  */
-Exposify.prototype.assignmentsCalcWordCounts = function(params) {
+Exposify.prototype.assignmentsCalcWordCounts = function(sheet, params) {
   try {
     var students = params.students;
     var filter = params.filter;
     var counts = null;
     if (students === 'selected') {
-      var counts = this.doCalcWordCountsSelected(this.sheet, filter);
+      var counts = this.doCalcWordCountsSelected(sheet, filter);
     } else if (students === 'all') {
-      var counts = this.doCalcWordCountsAll(this.sheet, filter);
+      var counts = this.doCalcWordCountsAll(sheet, filter);
     }
     counts.sort(function (a, b) {
       if (a.document > b.document) {
@@ -802,10 +803,10 @@ Exposify.prototype.assignmentsCalcWordCounts = function(params) {
  * word counts sidebar.
  * @return {string} title - The course title and enrollment figure.
  */
-Exposify.prototype.assignmentsCalcWordCountsGetTitle = function() {
+Exposify.prototype.assignmentsCalcWordCountsGetTitle = function(sheet) {
   try {
-    var courseTitle = this.getCourseTitle();
-    var enrollment = this.getStudentCount();
+    var courseTitle = this.getCourseTitle(sheet);
+    var enrollment = this.getStudentCount(sheet);
     var title = courseTitle + ' (' + enrollment + ' students)';
     return title;
   } catch(e) { this.logError('Exposify.prototype.assignmentsCalcWordCountsGetTitle', e); }
@@ -815,17 +816,18 @@ Exposify.prototype.assignmentsCalcWordCountsGetTitle = function() {
 /**
  * Create Google Docs files for students to use as templates for their assignments.
  */
-Exposify.prototype.assignmentsCreatePaperTemplates = function(assignment) {
+Exposify.prototype.assignmentsCreatePaperTemplates = function(sheet, assignment) {
   try {
+    var spreadsheet = this.spreadsheet;
     var that = this;
-    var students = this.getStudentNames();
-    var folder = this.getCourseFolder();
-    var section = this.getSectionTitle();
+    var students = this.getStudentNames(sheet);
+    var folder = this.getCourseFolder(sheet);
+    var section = this.getSectionTitle(sheet);
     var files = [];
     students.forEach(function(student) {
       var fileName = student + ' ' + section + ' - ' + assignment;
       var document = that.doMakeNewTemplate(fileName);
-      Utilities.sleep(100); // just in case we're moving too fast for the server
+      Utilities.sleep(100); // just in case
       var id = document.getId();
       files.push(DriveApp.getFileById(id));
     });
@@ -833,7 +835,7 @@ Exposify.prototype.assignmentsCreatePaperTemplates = function(assignment) {
       folder.addFile(file);
       DriveApp.removeFile(file);
     });
-    this.spreadsheet.toast(ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS.replace('$', section), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
+    spreadsheet.toast(ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS.replace('$', section), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
   } catch(e) { this.logError('Exposify.prototype.assignmentsCreatePaperTemplates', e); }
 } // end Exposify.prototype.assignmentsCreatePaperTemplates
 
@@ -845,7 +847,8 @@ Exposify.prototype.assignmentsCreatePaperTemplates = function(assignment) {
  */
 Exposify.prototype.checkSheetStatus = function(params) {
   try {
-    var check = this.getSheetStatus();
+    var sheet = this.sheet;
+    var check = this.getSheetStatus(sheet);
     if (check === false) {
       var alert = this.alert({msg: ALERT_NO_GRADEBOOK});
       alert();
@@ -1038,10 +1041,9 @@ Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
  * Create a new Google Sheets file using only the gradebook portion of the active sheet,
  * for downloading in another format.
  */
-Exposify.prototype.doGenerateGradebook = function() {
+Exposify.prototype.doGenerateGradebook = function(sheet) {
   try {
-    var spreadsheet = this.getActiveSpreadsheet();
-    var sheet = this.getActiveSheet();
+    var spreadsheet = this.spreadsheet;
     var name = this.getCourseTitle(sheet);
     var section = this.getSectionTitle(sheet);
     var semester = this.getSemesterTitle(sheet);
@@ -1080,7 +1082,7 @@ Exposify.prototype.doMakeAlert = function(confirmation) {
   try {
     var alertType = confirmation.alertType;
     var msg = confirmation.msg;
-    var ui = this.getUi();
+    var ui = this.ui;
     var title = (confirmation.hasOwnProperty('title') ? confirmation.title : ALERT_TITLE_DEFAULT);
     var alertUi = this.alertUi;
     var ok = alertUi.ok;
@@ -1259,7 +1261,7 @@ Exposify.prototype.doMakeNewTemplate = function(title) {
 Exposify.prototype.doParseSpreadsheet = function(id, mimeType) {
   try {
     var students = [];
-    var sheet = this.getActiveSheet();
+    var sheet = this.sheet;
     var section = this.getSectionTitle(sheet);
     if (mimeType === 'application/vnd.google-apps.spreadsheet') {
       var file = SpreadsheetApp.openById(id); // open file to retrieve data
@@ -1312,7 +1314,7 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
  * Make the gradebook easier to read by setting alternating shaded and unshaded rows.
  * @param {Sheet} sheet - The Google Apps Sheet object with the gradebook to modify.
  */
- Exposify.prototype.doSetShadedRows = function (sheet) {
+ Exposify.prototype.doSetShadedRows = function(sheet) {
   try {
     var lastRow = MAX_STUDENTS + 3; // maximum number of students plus three to account for title rows
     var lastColumn = sheet.getLastColumn();
@@ -1339,7 +1341,7 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
  * Switch student name order from last name first to first name last or vice versa.
  * @param {Sheet} sheet - The Google Apps Sheet object with the gradebook to modify.
  */
-Exposify.prototype.doSwitchStudentNames = function (sheet) {
+Exposify.prototype.doSwitchStudentNames = function(sheet) {
   try {
     var students = this.getStudents(sheet);
     for (i = 0; i < students.length; i += 1) {
@@ -1425,12 +1427,12 @@ Exposify.prototype.executeMenuCommand = function(params) {
     if (params.hasOwnProperty('command')) { // execute whatever other command the user is requesting, if no alert or dialog is needed
       var that = this; // have I told you lately that I love JavaScript?
       var commands = {
-        setupCreateContacts: function() { that.setupCreateContacts(that.getActiveSheet()); },
-        assignmentsCreatePaperTemplates: function() { that.assignmentsCreatePaperTemplates(response); },
+        setupCreateContacts: function() { that.setupCreateContacts(that.sheet); },
+        assignmentsCreatePaperTemplates: function() { that.assignmentsCreatePaperTemplates(that.sheet, response); },
         assignmentsCalcWordCounts: function() { that.showHtmlSidebar(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS); },
-        adminGenerateGradebook: function() { that.doGenerateGradebook(); },
-        formatSwitchStudentNames: function() { that.doSwitchStudentNames(that.getActiveSheet()); },
-        formatSetShadedRows: function() { that.doSetShadedRows(that.getActiveSheet()); },
+        adminGenerateGradebook: function() { that.doGenerateGradebook(this.sheet); },
+        formatSwitchStudentNames: function() { that.doSwitchStudentNames(that.sheet); },
+        formatSetShadedRows: function() { that.doSetShadedRows(that.sheet); },
         help: function() { that.showHtmlSidebar(SIDEBAR_HELP); }
       };
       var command = commands[params.command];
@@ -1438,29 +1440,12 @@ Exposify.prototype.executeMenuCommand = function(params) {
     }
   } catch(e) {
     if (params.hasOwnProperty('error_msg')) {
-      this.alert({msg: params.error_msg})();
+      var alert = this.alert({msg: params.error_msg});
+      alert(); // display alert if something goes wrong (this is the only error message a user should probably see)
     }
     this.logError('Exposify.prototype.executeMenuCommand', e);
   }
 } // end Exposify.prototype.executeMenuCommand
-
-
-/**
- * Get the Sheet object that represents the sheet the user is currently working with.
- * @return {Sheet}
- */
-Exposify.prototype.getActiveSheet = function() {
-  return this.getSpreadsheet().getActiveSheet();
-}; // end Exposify.prototype.getActiveSheet
-
-
-/**
- * Get the Spreadsheet object that represents the spreadsheet to which Exposify is attached.
- * @return {Spreadsheet}
- */
-Exposify.prototype.getActiveSpreadsheet = function() {
-  return this.getSpreadsheet();
-}; // end Exposify.prototype.getActiveSpreadsheet
 
 
 /**
@@ -1575,9 +1560,8 @@ Exposify.prototype.getCourseFolder = function(sheet) {
  * Look up and return the course number for this course, based on its name in the spreadsheet.
  * @return {string} courseNumber - The course number.
  */
-Exposify.prototype.getCourseNumber = function() {
+Exposify.prototype.getCourseNumber = function(sheet) {
   try {
-    var sheet = this.getActiveSheet();
     var title = this.getCourseTitle(sheet);
     var section = this.getSectionTitle(sheet);
     var name = title.replace(section, '').trim();
@@ -1868,7 +1852,7 @@ Exposify.prototype.getWordCounts = function(sheet, re) {
       }
     }
     var counts = [];
-    filtered.forEach( function(file) {
+    filtered.forEach(function(file) {
       var doc = DocumentApp.openById(file.getId()).getBody().getText();
       var worksCitedRe = /Works Cited(\s|.)+/; // regular expression to find and remove Works Cited from word count
       var count = doc.replace(worksCitedRe, '').split(/\s+/g).length; // simple word count, but delete the Works Cited first
@@ -1892,7 +1876,7 @@ Exposify.prototype.getWordCounts = function(sheet, re) {
  */
 Exposify.prototype.logError = function(callingFunction, traceback) {
   if (ERROR_TRACKING === true) {
-    var spreadsheet = this.getActiveSpreadsheet();
+    var spreadsheet = this.spreadsheet;
     var logFileId = PropertiesService.getScriptProperties().getProperty('LOG_FILE_ID');
     var logs = SpreadsheetApp.openById(logFileId);
     var errorLogSheet = logs.getSheetByName(ERROR_TRACKING_SHEET_NAME);
@@ -1905,7 +1889,8 @@ Exposify.prototype.logError = function(callingFunction, traceback) {
     pasteRange.setValues([info]);
   }
   var msg = 'You can tell Steve you saw this error message, and maybe he can fix it:\n(' + errorLogSheet.getLastRow() + ') ' + traceback;
-  this.alert({msg: msg})();
+  var alert = this.alert({msg: msg});
+  alert(); // this will be annoying if there are too many of them
 } // end Exposify.prototype.logError
 
 
@@ -1917,7 +1902,7 @@ Exposify.prototype.logError = function(callingFunction, traceback) {
  */
 Exposify.prototype.logInstall = function() {
   if (INSTALL_TRACKING === true) {
-    var spreadsheet = this.getActiveSpreadsheet();
+    var spreadsheet = this.spreadsheet;
     var logFileId = PropertiesService.getScriptProperties().getProperty('LOG_FILE_ID');
     var logs = SpreadsheetApp.openById(logFileId);
     var installLogSheet = logs.getSheetByName(INSTALL_TRACKING_SHEET_NAME);
@@ -1968,10 +1953,9 @@ Exposify.prototype.setSheetStatus = function(sheet) {
  * gradebook.
  * @param {string} id - The file id of the file from which to extract student names.
  */
-Exposify.prototype.setupAddStudents = function(id) {
+Exposify.prototype.setupAddStudents = function(sheet, id) {
   try {
-    var spreadsheet = this.getActiveSpreadsheet();
-    var sheet = this.getActiveSheet();
+    var spreadsheet = this.spreadsheet;
     var file = DriveApp.getFileById(id);
     var mimeType = file.getMimeType(); // Google Sheets or csv format
     var filename = file.getName();
@@ -1981,17 +1965,20 @@ Exposify.prototype.setupAddStudents = function(id) {
     } else if (mimeType === MIME_TYPE_CSV) {
       students = this.doParseSpreadsheet(id, MIME_TYPE_CSV);
     } else {
-      this.alert({msg: ERROR_SETUP_ADD_STUDENTS_INVALID.replace('$', filename)})(); // '$' is a wildcard value that is replaced with the filename
+      var alert = this.alert({msg: ERROR_SETUP_ADD_STUDENTS_INVALID.replace('$', filename)}); // '$' is a wildcard value that is replaced with the filename
+      alert();
       return;
     }
     if (students.length === 0) {
-      this.alert({msg: ERROR_SETUP_ADD_STUDENTS_EMPTY.replace('$', filename)})();
+      var alert = this.alert({msg: ERROR_SETUP_ADD_STUDENTS_EMPTY.replace('$', filename)});
+      alert();
     } else {
       this.doAddStudents(students, sheet);
       spreadsheet.toast(ALERT_SETUP_ADD_STUDENTS_SUCCESS.replace('$', filename), TOAST_TITLE, TOAST_DISPLAY_TIME);
     }
   } catch(e) {
-    this.alert({msg: ERROR_SETUP_ADD_STUDENTS})();
+    var alert = this.alert({msg: ERROR_SETUP_ADD_STUDENTS})
+    alert();
     this.logError('Exposify.prototype.setupAddStudents', e);
   }
 } // end Exposify.prototype.setupAddStudents
@@ -2003,7 +1990,7 @@ Exposify.prototype.setupAddStudents = function(id) {
  */
 Exposify.prototype.setupCreateContacts = function(sheet) {
   try {
-    var spreadsheet = this.getActiveSpreadsheet();
+    var spreadsheet = this.spreadsheet;
     var students = this.getStudents(sheet);
     var allContacts = ContactsApp.getContactsByEmailAddress(EMAIL_DOMAIN);
     var allContactsEmails = allContacts.map(function(contact) { return contact.getEmails()[0].getAddress(); }); // try to save time by reducing API calls
@@ -2038,14 +2025,13 @@ Exposify.prototype.setupCreateContacts = function(sheet) {
  * @param {string} courseInfo.semester - A semester name.
  * @param {Array} courseInfo.meetingDays - A list of days of the week when the class meets.
  */
-Exposify.prototype.setupNewGradebook = function(courseInfo) {
-  var spreadsheet = this.getActiveSpreadsheet();
-  var sheet = this.getActiveSheet();
+Exposify.prototype.setupNewGradebook = function(sheet, courseInfo) {
+  var spreadsheet = this.spreadsheet;
   var newName = courseInfo.course === OTHER_COURSE_NUMBER ? courseInfo.section : courseInfo.course + ':' + courseInfo.section; // only show the course number if it's real
   var exists = spreadsheet.getSheetByName(newName);
   if (exists !== null && sheet.getName() === newName) {
-    var msg = ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS.replace('$', newName);
-    this.alert({msg: msg})(); // avoid creating a new sheet with the same name as an existing sheet
+    var alert = this.alert({msg: ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS.replace('$', newName)}); // avoid creating a new sheet with the same name as an existing sheet
+    alert();
     return;
   }
   var newCourse = new Course(courseInfo); // create new Course object with information collected from the user by the dialog box
@@ -2057,10 +2043,12 @@ Exposify.prototype.setupNewGradebook = function(courseInfo) {
     if (checkStatus === true) {
       spreadsheet.toast(ALERT_SETUP_NEW_GRADEBOOK_SUCCESS.replace('$', newCourse.nameSection), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
     } else {
-      this.alert({msg: ERROR_SETUP_NEW_GRADEBOOK_FORMAT})();
+      var alert = this.alert({msg: ERROR_SETUP_NEW_GRADEBOOK_FORMAT});
+      alert();
     }
   } catch(e) {
-    this.alert({msg: ERROR_SETUP_NEW_GRADEBOOK_FORMAT})();
+    var alert = this.alert({msg: ERROR_SETUP_NEW_GRADEBOOK_FORMAT});
+    alert();
     this.logError('Exposify.prototype.setupNewGradebook', e);
   }
 } // end Exposify.prototype.setupNewGradebook
