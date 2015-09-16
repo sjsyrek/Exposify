@@ -36,8 +36,16 @@
  * need to create one, associate it with the script project, and, in the Script
  * Editor, create a Script Property called DEVELOPER_KEY with your API key as the
  * value. In addition, you will need to enable the Google Picker API in the
- * Developers Console in order for the file picking user interface to function.
+ * Developers Console in order for the file picking user interface to function. Finally,
+ * this script requires the addition of the OAuth2 library. For details, see
+ * https://github.com/googlesamples/apps-script-oauth2. You will need to set a Script
+ * Property with your CLIENT_ID and another one with your CLIENT_SECRET. The client id
+ * and secret are available from the Google Developers Console. You also have to set
+ * the Redirect URI for your client id to
+ * https://script.google.com/macros/d/{PROJECT KEY}/getDriveServiceCallback. You can find
+ * your Project Key in File : Project properties in the Info tab. Good luck!
  */
+
 
 //TODO: publish Exposify to GitHub
 //TODO: use sheet.appendRow() instead of getLastRow() where possible
@@ -109,6 +117,7 @@ var MIME_TYPE_GOOGLE_SHEET = 'application/vnd.google-apps.spreadsheet';
  */
 var ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS = 'New document files successfully created for the students in section $.';
 var ALERT_EDIT_HEADER_WARNING = 'Please do not edit the first two rows and columns of this spreadsheet. Doing so will break Exposify! If you changed these values, you might want to change them back. Thank you!';
+var ALERT_GENERATE_GRADEBOOK_SUCCESS = 'New gradebook file for "$" successfully created!';
 var ALERT_INSTALL_THANKS = 'Thanks for installing Exposify! Add a new section by selecting \"Setup New Expos Section\" in the Exposify menu.';
 var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. Do that before anything else.';
 var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '\'$\' successfully imported! You should double-check the spreadsheet to make sure it\'s correct.';
@@ -377,7 +386,7 @@ var DIALOG_ADMIN_WARNING_ROSTER = {
 DIALOG_ADMIN_GRADEBOOK = {
   alert: {
     alertType: YES_NO,
-    msg: 'This will create a gradebook file from the relevant data on this sheet in Excel-compatible format for submission to the appropriate authorities. The file will be placed in your root Drive folder. Is that what you want to do?',
+    msg: 'This will create a separate gradebook file from the relevant data on this sheet as another Google Sheets file that you can download in Excel or another format for submission to the appropriate authorities. The file will be placed in your root Drive folder. Is that what you want to do?',
     title: 'Generate Final Gradebook'
   },
   command: 'adminGenerateGradebook',
@@ -850,12 +859,12 @@ Exposify.prototype.checkSheetStatus = function(params) {
  * constant. The html field of the argument object should be an HTML file.
  * @param {Object} dialog - The template containing the specification of the dialog box.
  * @param {string} dialog.title - The title of the dialog box to display.
- * @param {string} dialog.html - The html file to process and display as the dialog box content.
+ * @param {string} dialog.html - The HTML file to process and display as the dialog box content.
  * @param {number} dialog.width - The width of the dialog box.
  * @param {number} dialog.height - The height of the dialog box.
  * @return {HtmlOutput} htmlDialog - The sanitized html dialog box, ready to be displayed to the user.
  */
-Exposify.prototype.createHtmlDialog = function(dialog) {
+Exposify.prototype.createHtmlDialogFromFile = function(dialog) {
   try {
     var stylesheet = this.getHtmlOutputFromFile(STYLESHEET);
     var body = this.getHtmlOutputFromFile(dialog.html).getContent(); // Sanitize the HTML file
@@ -864,8 +873,31 @@ Exposify.prototype.createHtmlDialog = function(dialog) {
       .setWidth(dialog.width)
       .setHeight(dialog.height);
     return htmlDialog;
-  } catch(e) { this.logError('Exposify.prototype.createHtmlDialog', e); }
-} // end Exposify.prototype.createHtmlDialog
+  } catch(e) { this.logError('Exposify.prototype.createHtmlDialogFromFile', e); }
+} // end Exposify.prototype.createHtmlDialogFromFile
+
+
+/**
+ * Create a dialog box to display to the user using information stored as a template an object literal
+ * constant. The html field of the argument object should be raw HTML.
+ * @param {Object} dialog - The template containing the specification of the dialog box.
+ * @param {string} dialog.title - The title of the dialog box to display.
+ * @param {string} dialog.html - The HTML content to process and display as the dialog box content.
+ * @param {number} dialog.width - The width of the dialog box.
+ * @param {number} dialog.height - The height of the dialog box.
+ * @return {HtmlOutput} htmlDialog - The sanitized html dialog box, ready to be displayed to the user.
+ */
+Exposify.prototype.createHtmlDialogFromText = function(dialog) {
+  try {
+    var stylesheet = this.getHtmlOutputFromFile(STYLESHEET);
+    var body = this.getHtmlOutput(dialog.html).getContent(); // Sanitize the HTML file
+    var page = stylesheet.append(body).getContent(); // Combine the style sheet with the body
+    var htmlDialog = this.getHtmlOutput(page)
+      .setWidth(dialog.width)
+      .setHeight(dialog.height);
+    return htmlDialog;
+  } catch(e) { this.logError('Exposify.prototype.createHtmlDialogFromText', e); }
+} // end Exposify.prototype.createHtmlDialogFromText
 
 
 /**
@@ -892,9 +924,9 @@ Exposify.prototype.doAddStudents = function (students, sheet) {
  * @param {Sheet} newCourse.sheet - The sheet to format.
  */
  Exposify.prototype.doFormatSheet = function(newCourse) {
-  var course = newCourse.course;
-  var sheet = newCourse.sheet;
   try {
+    var course = newCourse.course;
+    var sheet = newCourse.sheet;
     var section = course.section; // create a series of variables from the Course object passed in, for legibility
     var semester = course.semester;
     var courseNumber = course.number;
@@ -999,16 +1031,38 @@ Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
 } // end Exposify.prototype.doFormatSheetAddAttendanceRecord
 
 
+/**
+ * Create a new Google Sheets file using only the gradebook portion of the active sheet,
+ * for downloading in another format.
+ */
 Exposify.prototype.doGenerateGradebook = function() {
-  var courseNumber = this.getCourseNumber();
-  Logger.log(courseNumber);
-  Logger.log(COURSE_FORMATS[courseNumber].name);
-  Logger.log(COURSE_FORMATS[courseNumber].columns.length);
-//var id = '1BD0SvFBCuucYN_fnJDjYSbn_se7H1Vm6n_OkQkKyvHs';
-//var url = 'https://docs.google.com/feeds/';
-//var doc = UrlFetchApp.fetch(url+'download/spreadsheets/Export?key='+id+'&exportFormat=xls').getBlob();
-//DriveApp.createFile(doc);
-}
+  try {
+    var spreadsheet = this.getActiveSpreadsheet();
+    var sheet = this.getActiveSheet();
+    var name = this.getCourseTitle(sheet);
+    var section = this.getSectionTitle(sheet);
+    var semester = this.getSemesterTitle(sheet);
+    var courseNumber = this.getCourseNumber(sheet);
+    var rows = this.getStudentCount(sheet) + 3; // number of students plus the heading is the row delimiter for the spreadsheet to export
+    var columns = COURSE_FORMATS[courseNumber].columns.length; // use the number of columns specified in COURSE_FORMATS as the column delimiter
+    var exportRange = sheet.getRange(1, 1, rows, columns);
+    var values = exportRange.getValues();
+    var newSpreadsheet = SpreadsheetApp.create(name, MAX_STUDENTS + 3, columns);
+    var importSheet = newSpreadsheet.getSheets()[0];
+    var importRange = importSheet.getRange(1, 1, rows, columns);
+    var courseInfo = {
+      course: courseNumber,
+      section: section,
+      semester: semester,
+      meetingDays: []
+    };
+    var course = new Course(courseInfo);
+    this.doFormatSheet({course: course, sheet: importSheet}); // make sure the new sheet looks pretty
+    importRange.setValues(values); // copy the relevant data from this sheet to the new spreadsheet, starting at the top left corner
+    spreadsheet.toast(ALERT_GENERATE_GRADEBOOK_SUCCESS.replace('$', title), TOAST_TITLE, TOAST_DISPLAY_TIME);
+  } catch(e) { this.logError('Exposify.prototype.doGenerateGradebook', e); }
+} // end Exposify.prototype.doGenerateGradebook
+
 
 /**
  * Create an alert dialog box to be displayed to the user. The alert is comprised of an alert type, which should be
@@ -1362,7 +1416,7 @@ Exposify.prototype.executeMenuCommand = function(params) {
     }
     if (params.hasOwnProperty('dialog') && response === true) { // show the dialog, if there is one, and if the alert response is true
       var dialog = params.dialog;
-      var htmlDialog = this.createHtmlDialog(dialog); // "sanitize" the HTML so Google will display it
+      var htmlDialog = this.createHtmlDialogFromFile(dialog); // "sanitize" the HTML so Google will display it
       this.showModalDialog(htmlDialog, dialog.title); // to limit the number of times I reference Ui
     }
     if (params.hasOwnProperty('command')) { // execute whatever other command the user is requesting, if no alert or dialog is needed
@@ -1415,6 +1469,32 @@ Exposify.prototype.getAlternateDesignationYearStatus = function(year) { // chang
   var firstDayOfSeptember = (new Date(year, 8, 1)).getDay();
   return firstDayOfSeptember === 2 ? true : false; // return true if the first day of September of the year being checked is a Tuesday and false otherwise
 } // end Exposify.prototype.getAlternateDesignationYearStatus
+
+
+/**
+ * Get the client secret for this script for use in the OAuth2 authorization flow. The secret is stored
+ * as a script property, because we don't want end users to be able to see it.
+ * @return {string} secret - The client secret for this app.
+ */
+Exposify.prototype.getClientSecret = function() {
+  try {
+    var secret = PropertiesService.getScriptProperties().getProperty('CLIENT_SECRET');
+    return secret;
+  } catch(e) { this.logError('Exposify.prototype.getClientSecret', e); }
+} // end Exposify.prototype.getClientSecret
+
+
+/**
+ * Get the client id for this script for use in the OAuth2 authorization flow. The id is stored
+ * as a script property, because we don't want end users to be able to see it.
+ * @return {string} id - The client id for this app.
+ */
+Exposify.prototype.getClientId = function() {
+  try {
+    var id = PropertiesService.getScriptProperties().getProperty('CLIENT_ID');
+    return id;
+  } catch(e) { this.logError('Exposify.prototype.getClientId', e); }
+} // end Exposify.prototype.getClientId
 
 
 /**
@@ -2276,47 +2356,124 @@ function diffPapers() {
   Logger.log(result);
 }
 
+
 // Fetch revision history of document
-function getRevisionHistory(id){
-  var id = '1YTThNXwde96tnRDTBUtEQZ18rOWzTEpDAc-Qecpd36w';
-  //var scope = 'https://www.googleapis.com/auth/drive';
-  var scope = 'https://www.googleapis.com/drive/v2/files/';
-  var fetchArgs = googleOAuth_('docs', scope);
-  //fetchArgs.method = 'GET';
+Exposify.prototype.getRevisionHistory = function(id) {
+  var driveService = this.getDriveService();
+  var callback = 'getRevisionHistoryCallback';
   var url = 'https://www.googleapis.com/drive/v2/files/' + id + '/revisions';
-  var response = UrlFetchApp.fetch(url, fetchArgs);
+  var response = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + driveService.getAccessToken() } });
   var json = JSON.parse(response);
-  Logger.log(response);
+  Logger.log(json);
 
   //var jsonFeed = Utilities.jsonParse(urlFetch.getContentText()).feed.entry;
   //return the revison history feed
   //return jsonFeed
 }
 
-function googleOAuth_(name, scope) {
-  var oAuthConfig = UrlFetchApp.addOAuthService(name);
-  oAuthConfig.setRequestTokenUrl('https://www.google.com/accounts/OAuthGetRequestToken?scope=' + scope);
-  //oAuthConfig.setRequestTokenUrl('https://accounts.google.com/o/oauth2/');
-  oAuthConfig.setAuthorizationUrl('https://www.google.com/accounts/OAuthAuthorizeToken');
-  //oAuthConfig.setAuthorizationUrl('https://accounts.google.com/o/oauth2/auth');
-  oAuthConfig.setAccessTokenUrl('https://www.google.com/accounts/OAuthGetAccessToken');
-  //oAuthConfig.setAccessTokenUrl('https://www.googleapis.com/oauth2/v1/tokeninfo');
-  oAuthConfig.setConsumerKey('anonymous');
-  oAuthConfig.setConsumerSecret('anonymous');
-  return {oAuthServiceName: name, oAuthUseToken: 'always', muteHttpExceptions : true};
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+function getDriveServiceCallback(request) { return expos.authCallback(request); }
+function assignmentsCompareDraftsCallback(assignment) { return expos.assignmentsCompareDrafts(assignment); }
+
+Exposify.prototype.assignmentsCompareDrafts = function(assignment) {
+  // get revisions from Drive API, then return list of revisions if there are any
 }
 
-function test1() {
-  var type = DriveApp.getFileById('1b9fEFuDMXd8c4e1_AvBRY-055Z1uR0pvrOVwTgEm5eE').getMimeType();
-  Logger.log(type);
+
+function clearService() {
+  OAuth2.createService('drive')
+  .setPropertyStore(PropertiesService.getUserProperties())
+  .reset();
 }
+
+Exposify.prototype.authCallback = function(request) {
+  var driveService = this.getDriveService();
+  var isAuthorized = driveService.handleCallback(request);
+  if (isAuthorized) {
+    var params = CacheService.getUserCache().getAll(['id', 'callback']); // returns {}, not null, if these keys don't exist
+    if (params !== {}) {
+      CacheService.getUserCache().removeAll(['id', 'callback']);
+      this.fetchFileFromDrive(params);
+    }
+    return HtmlService.createHtmlOutput('Success! You can close this tab.');
+  } else {
+    return HtmlService.createHtmlOutput('Denied. You can close this tab');
+  }
+}
+
+Exposify.prototype.getDriveService = function() {
+  return OAuth2.createService('drive')
+      .setAuthorizationBaseUrl('https://accounts.google.com/o/oauth2/auth')
+      .setTokenUrl('https://accounts.google.com/o/oauth2/token')
+      .setClientId(this.getClientId())
+      .setClientSecret(this.getClientSecret())
+      .setCallbackFunction('getDriveServiceCallback')
+      .setPropertyStore(PropertiesService.getUserProperties())
+      .setScope('https://www.googleapis.com/auth/drive')
+      .setParam('login_hint', Session.getActiveUser().getEmail())
+      .setParam('access_type', 'offline')
+      // Forces the approval prompt every time. This is useful for testing,
+      // but not desirable in a production application.
+      .setParam('approval_prompt', 'force');
+}
+
+
+var DIALOG_DRIVE_AUTHORIZATION = {
+  dialog: {
+    title: 'Drive Authorization Required',
+    html:
+      '<div>' +
+      'To perform this function, Exposify needs you to authorize access to your Google Drive file. I\'m really sorry, but I promise it\'s completely harmless! Is this OK?' +
+      '<div>' +
+      '<a href="<?= authorizationUrl ?>" target="_blank"><input class="button" type="button" value="Yes" onclick="google.script.host.close()"></a>' +
+      '<input class="button" type="button" value="No" onclick="google.script.host.close()">' +
+      '</div></div>',
+    width: 500,
+    height: 200
+  },
+  error_msg: 'I could not access your Drive for some reason. Please try again.'
+};
+
+Exposify.prototype.getAuthorizationUrl = function() {
+  var driveService = this.getDriveService();
+  if (!driveService.hasAccess()) {
+    var authorizationUrl = driveService.getAuthorizationUrl();
+    var stylesheet = this.getHtmlOutputFromFile(STYLESHEET).getContent();
+    var dialog = DIALOG_DRIVE_AUTHORIZATION.dialog;
+    var template = HtmlService.createTemplate(stylesheet + dialog.html);
+    template.authorizationUrl = authorizationUrl;
+    var page = template.evaluate()
+      .setWidth(dialog.width)
+      .setHeight(dialog.height);
+    this.showModalDialog(page, dialog.title);
+  } else {
+    this.alert({msg: DIALOG_DRIVE_AUTHORIZATION.error_msg})();
+  }
+}
+
+// params = {id, callback}
+Exposify.prototype.fetchFileFromDrive = function(params) {
+  var driveService = this.getDriveService();
+  if (!driveService.hasAccess()) {
+    CacheService.getUserCache().putAll(params);
+    this.getAuthorizationUrl(params);
+    return;
+  }
+  this[params.callback](params);
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 /**
  * Test a function defined on the Exposify prototype and log the return value.
  */
 function exposifyTest() {
-  var testFunction = 'getCourseNumber';
+  var testFunction = 'getRevisionHistory';
+  var params = '18dD1aHHS1jJMIWTFCON0zbRV9zAG64eokNGlz8MJmvA'; // Google Doc to test revision history
   var functions = Exposify.prototype;
-  var returnValue = functions[testFunction].call(expos);
+  var returnValue = functions[testFunction].call(expos, params);
   Logger.log(returnValue);
 } // end exposifyTest
