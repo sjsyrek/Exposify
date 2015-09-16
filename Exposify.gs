@@ -546,7 +546,7 @@ function GradeValidationSet() {
 function Student(name, netid) {
   this.name = name;
   this.netid = netid;
-  this.email = netid + EMAIL_DOMAIN;
+  this.email = (EMAIL_REGEX.test(netid + EMAIL_DOMAIN) === true ? netid + EMAIL_DOMAIN : ''); // make sure the email address is valid
 }; // end Student
 
 
@@ -2015,7 +2015,7 @@ Exposify.prototype.setupCreateContacts = function(sheet) {
       var contactExists = allContactsEmails.indexOf(student.email);
       if (contactExists === -1) { // if not, create a new contact
         var name = that.getNameFirstLast(student.name).split(' ');
-        var contact = ContactsApp.createContact(name[0], name[1], student.email);
+        var contact = ContactsApp.createContact(name[0], name[1], student.email); // if the student's email doesn't exist or is incorrectly formatted, this field will be blank
       } else {
         var contact = ContactsApp.getContact(student.email);
       }
@@ -2477,3 +2477,8 @@ function exposifyTest() {
   var returnValue = functions[testFunction].call(expos, params);
   Logger.log(returnValue);
 } // end exposifyTest
+
+function constructorTest() {
+  var student = new Student('Steven Syrek', 'ssyrek@');
+  Logger.log(student);
+}
