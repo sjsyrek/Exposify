@@ -95,7 +95,7 @@ var GRADED_PAPERS_FOLDER_NAME = 'Graded Papers'; // name of the folder for Grade
 var ATTENDANCE_SHEET_COLUMN_WIDTH = 25; // width of columns in the attendance record part of the gradebook, 25 is the minimum recommended if you want all the dates to be visible
 var COLOR_BLANK = '#ffffff'; // #ffffff is white
 var COLOR_SHADED = '#ededed'; // #ededed is light grey, a nice color for contrast and also a pun on the purpose of this application
-var FONT = 'verdana,sans,sans-serif'; // font for the gradebook, with fallbacks
+var FONT = ['verdana,sans,sans-serif']; // font for the gradebook, with fallbacks
 
 var DAYS = { // an enum for days of the week; do not ever change these values or the whole thing will blow up
   'Sunday': 0,
@@ -931,6 +931,52 @@ Exposify.prototype.doAddStudents = function (params) {
 
 
 /**
+ * Generate a regular expression for counting the words of all the documents in a course folder.
+ * @param {Sheet} sheet - A Google Apps Sheet object containing the gradebook to check.
+ * @param {string} filter - The file search filter supplied by the user.
+ * @return {Array} counts - The array of word count information returned by {@code getWordCounts()}.
+ */
+Exposify.prototype.doCalcWordCountsAll = function(sheet, filter) {
+  try {
+    var studentList = this.getStudentNames(sheet);
+    var regex = '(.*';
+    studentList.forEach( function(student, index) {
+      regex += (student + (index === studentList.length - 1 && filter === '' ? '.*)' : '.*|.*')); // I am a bad person
+    });
+    if (filter !== '') {
+      regex += (filter + '.*)+(.*' + filter + '.*|.*'); // I'm sorry
+      studentList.forEach( function(student, index) {
+        regex += (student + (index === studentList.length - 1 ? '.*)' : '.*|.*')); // Seriously
+      });
+    }
+    var re = new RegExp(regex);
+    var counts = this.getWordCounts(sheet, re);
+    return counts;
+  } catch(e) { this.logError('Exposify.prototype.doCalcWordCountsAll', e); }
+} // end Exposify.prototype.doCalcWordCountsAll
+
+
+/**
+ * Generate a regular expression for counting the words of a specific student's documents.
+ * @param {Sheet} sheet - A Google Apps Sheet object containing the gradebook to check.
+ * @param {string} filter - The file search filter supplied by the user.
+ * @return {Array} counts - The array of word count information returned by {@code getWordCounts()}.
+ */
+Exposify.prototype.doCalcWordCountsSelected = function(sheet, filter) {
+  try {
+    var cellValue = sheet.getActiveCell().getValue();
+    if (cellValue === '') {
+      return [];
+    }
+    var regex = (filter === '' ? '.*' + cellValue + '.*' : '(.*' + cellValue + '.*|.*' + filter + '.*)+(.*' + filter + '.*|.*' + cellValue + '.*)'); // I mean it
+    var re = new RegExp(regex);
+    var counts = this.getWordCounts(sheet, re);
+    return counts;
+  } catch(e) { this.logError('Exposify.prototype.doCalcWordCountsSelected', e); }
+} // end Exposify.prototype.doCalcWordCountsSelected
+
+
+/**
  * Format a spreadsheet sheet for use as a gradebook for a specified course.
  * @param {Object} newCourse - Information about the new course on which to base the formatting.
  * @param {Course} newCourse.course - The course information requested from the user.
@@ -1370,52 +1416,6 @@ Exposify.prototype.doSwitchStudentNames = function(sheet) {
     this.doSetShadedRows(sheet); // because the sort will probably mess them up
   } catch(e) { this.logError('Exposify.prototype.doSwitchStudentNames', e); }
 } // end Exposify.prototype.doSwitchStudentNames
-
-
-/**
- * Generate a regular expression for counting the words of all the documents in a course folder.
- * @param {Sheet} sheet - A Google Apps Sheet object containing the gradebook to check.
- * @param {string} filter - The file search filter supplied by the user.
- * @return {Array} counts - The array of word count information returned by {@code getWordCounts()}.
- */
-Exposify.prototype.doCalcWordCountsAll = function(sheet, filter) {
-  try {
-    var studentList = this.getStudentNames(sheet);
-    var regex = '(.*';
-    studentList.forEach( function(student, index) {
-      regex += (student + (index === studentList.length - 1 && filter === '' ? '.*)' : '.*|.*')); // I am a bad person
-    });
-    if (filter !== '') {
-      regex += (filter + '.*)+(.*' + filter + '.*|.*'); // I'm sorry
-      studentList.forEach( function(student, index) {
-        regex += (student + (index === studentList.length - 1 ? '.*)' : '.*|.*')); // Seriously
-      });
-    }
-    var re = new RegExp(regex);
-    var counts = this.getWordCounts(sheet, re);
-    return counts;
-  } catch(e) { this.logError('Exposify.prototype.doCalcWordCountsAll', e); }
-} // end Exposify.prototype.doCalcWordCountsAll
-
-
-/**
- * Generate a regular expression for counting the words of a specific student's documents.
- * @param {Sheet} sheet - A Google Apps Sheet object containing the gradebook to check.
- * @param {string} filter - The file search filter supplied by the user.
- * @return {Array} counts - The array of word count information returned by {@code getWordCounts()}.
- */
-Exposify.prototype.doCalcWordCountsSelected = function(sheet, filter) {
-  try {
-    var cellValue = sheet.getActiveCell().getValue();
-    if (cellValue === '') {
-      return [];
-    }
-    var regex = (filter === '' ? '.*' + cellValue + '.*' : '(.*' + cellValue + '.*|.*' + filter + '.*)+(.*' + filter + '.*|.*' + cellValue + '.*)'); // I mean it
-    var re = new RegExp(regex);
-    var counts = this.getWordCounts(sheet, re);
-    return counts;
-  } catch(e) { this.logError('Exposify.prototype.doCalcWordCountsSelected', e); }
-} // end Exposify.prototype.doCalcWordCountsSelected
 
 
 /**
