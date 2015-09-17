@@ -551,6 +551,31 @@ function Student(name, netid) {
 
 
 /**
+ * This is a constructor for a course format.
+ * @constructor
+ */
+function Format(course) {
+  this.course = course;
+  this.courseNumber = course.number;
+  this.courseTitle = course.nameSection;
+  this.sheetName = course.numberSection;
+  this.courseFormat = COURSE_FORMATS[this.courseNumber];
+  this.section = course.section;
+  this.semester = course.semester;
+  this.rows = course.rows;
+  this.lastRow = course.rows.length;
+  this.columns = course.columns;
+  this.lastColumn = course.columns.length;
+  this.columnHeadings = course.columnHeadings;
+  this.meetingDays = course.meetingDays;
+  this.gradeValidations = course.gradeValidations === undefined ? false : true;
+  this.setRowHeights = function(sheet) { this.rows.map(function(row, index) { sheet.setRowHeight(index + 1, this.rows[index]); }, this); } // set row heights
+  this.setColumnWidths = function(sheet) {this.columns.map(function(column, index) { sheet.setColumnWidth(index + 1, this.columns[index]); }, this); } // set column widths
+  this.shadedRows = false;
+} // end Format
+
+
+/**
  * Creates a folder object with information about a folder stored in the user's Google Drive.
  * @constructor
  */
@@ -982,70 +1007,13 @@ Exposify.prototype.doCalcWordCountsSelected = function(sheet, filter) {
  * @param {Course} newCourse.course - The course information requested from the user.
  * @param {Sheet} newCourse.sheet - The sheet to format.
  */
- Exposify.prototype.doFormatSheet = function(newCourse) {
+Exposify.prototype.doFormatSheet = function(newCourse) {
   try {
-    var course = newCourse.course;
     var sheet = newCourse.sheet;
-    var section = course.section; // create a series of variables from the Course object passed in, for legibility
-    var semester = course.semester;
-    var courseNumber = course.number;
-    var courseFormat = COURSE_FORMATS[courseNumber];
-    var rows = course.rows;
-    var lastRow = rows.length;
-    var columns = course.columns;
-    var lastColumn = columns.length;
-    var courseTitle = course.nameSection;
-    var columnHeadings = course.columnHeadings;
-    var gradeValidations = course.gradeValidations;
-    var headingRange = sheet.getRange(3, 1, 1, columnHeadings.length); // cell range for gradebook column headings
-    var centerRange = sheet.getRange(3, 3, lastRow, lastColumn); // cell range for central part of gradebook, where grade data is actually entered
-    var topRowsRange = sheet.getRange(1, 1, 3, lastColumn); // rows to keep at the top of the spreadsheet view
-    var titleRange = sheet.getRange('A1:A2'); // course name and semester titles
-    var mergeTitleRange = sheet.getRange('A1:B2'); // we want to merge each of these with the following cell to create a bigger space for the titles
-    var mergeRange = sheet.getRange(1, 3, 2, lastColumn - 2); // merge the empty columns in the top rows so it looks nicer
-    var cornerRange = sheet.getRange('A3:B3'); // where the frozen rows and columns intersect
-    var fullRange = sheet.getRange(1, 1, lastRow, lastColumn); // range of the entire gradebook
-    var maxRange = sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()); // range of the entire visible sheet
-    sheet.clear(); // clear all values and formatting
-    maxRange.clearDataValidations(); // this has to be done separately
-    sheet.setFrozenRows(0); // make sure only the correct rows and columns are frozen when formatting is complete
-    sheet.setFrozenColumns(0);
-    fullRange.breakApart(); // break apart any merged cells
-    for (i = 1; i <= lastRow; i += 1) { // set row heights
-      sheet.setRowHeight(i, rows[i-1]);
-    }
-    for (i = 1; i <= lastColumn; i += 1) { // set column widths
-      sheet.setColumnWidth(i, columns[i-1]);
-    }
-    fullRange.setFontFamily([FONT]); // set font
-    fullRange.setFontSize(11); // student names and grades font size
-    titleRange.setFontSizes([[16],[14]]); // titles font size
-    headingRange.setFontSize(9); // headings font size
-    cornerRange.setHorizontalAlignment('center'); // set text alignments
-    cornerRange.setVerticalAlignment('middle');
-    centerRange.setHorizontalAlignment('center');
-    centerRange.setVerticalAlignment('middle');
-    fullRange.setBorder(true, true, true, true, true, true); // set cell borders
-    titleRange.setValues([[courseTitle],[semester]]); // set titles
-    mergeTitleRange.mergeAcross(); // merge title cells
-    mergeRange.mergeAcross(); // merge other cells in the first two rows
-    headingRange.setValues([columnHeadings]); // set column headings
-    headingRange.setWrap(true); // set word wrapping
-    topRowsRange.setBackground(COLOR_SHADED); // set background color of frozen rows
-    sheet.setFrozenRows(3); // freeze first three rows (sorry, magic number)
-    sheet.setFrozenColumns(2); // freeze first two columns (sorry, another magic number)
-    if (gradeValidations !== undefined) {
-      this.setGradeValidations(sheet, gradeValidations); // set data validations for grades
-    }
-    if (courseFormat.hasOwnProperty('finalGradeFormulaRange')) {
-      this.doSetFormulas(sheet, courseNumber); // apply final grade formula to this range
-    }
-    if (course.meetingDays.length !== 0) {
-      this.doFormatSheetAddAttendanceRecord(course, sheet); // add an attendance sheet if the user asked for it
-    }
-    this.doSetShadedRows(sheet); // set alternating color of student rows
-    sheet.setName(course.numberSection); // name sheet with section number
-    return true;
+    var course = newCourse.course;
+    var format = new Format(course);
+    format.setShadedRows().apply(sheet);
+    return true
   } catch(e) { this.logError('Exposify.prototype.doFormatSheet', e); }
 } // end Exposify.prototype.doFormatSheet
 
@@ -1098,7 +1066,7 @@ Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
 Exposify.prototype.doGenerateGradebook = function(sheet) {
   try {
     var spreadsheet = this.spreadsheet;
-    var name = this.getCourseTitle(sheet);
+    var title = this.getCourseTitle(sheet);
     var section = this.getSectionTitle(sheet);
     var semester = this.getSemesterTitle(sheet);
     var courseNumber = this.getCourseNumber(sheet);
@@ -1106,7 +1074,7 @@ Exposify.prototype.doGenerateGradebook = function(sheet) {
     var columns = COURSE_FORMATS[courseNumber].columns.length; // use the number of columns specified in COURSE_FORMATS as the column delimiter
     var exportRange = sheet.getRange(1, 1, rows, columns);
     var values = exportRange.getValues();
-    var newSpreadsheet = SpreadsheetApp.create(name, MAX_STUDENTS + 3, columns);
+    var newSpreadsheet = SpreadsheetApp.create(title, MAX_STUDENTS + 3, columns);
     var importSheet = newSpreadsheet.getSheets()[0];
     var importRange = importSheet.getRange(1, 1, rows, columns);
     var courseInfo = {
@@ -1116,7 +1084,8 @@ Exposify.prototype.doGenerateGradebook = function(sheet) {
       meetingDays: []
     };
     var course = new Course(courseInfo);
-    this.doFormatSheet({course: course, sheet: importSheet}); // make sure the new sheet looks pretty
+    var format = new Format(course);
+    format.apply(importSheet); // make sure the new sheet looks pretty
     importRange.setValues(values); // copy the relevant data from this sheet to the new spreadsheet, starting at the top left corner
     spreadsheet.toast(ALERT_GENERATE_GRADEBOOK_SUCCESS.replace('$', title), TOAST_TITLE, TOAST_DISPLAY_TIME);
   } catch(e) { this.logError('Exposify.prototype.doGenerateGradebook', e); }
@@ -1443,7 +1412,7 @@ Exposify.prototype.executeMenuCommand = function(params) {
         setupCreateContacts: function() { that.setupCreateContacts(that.sheet); },
         assignmentsCreatePaperTemplates: function() { that.assignmentsCreatePaperTemplates(that.sheet, response); },
         assignmentsCalcWordCounts: function() { that.showHtmlSidebar(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS); },
-        adminGenerateGradebook: function() { that.doGenerateGradebook(this.sheet); },
+        adminGenerateGradebook: function() { that.doGenerateGradebook(that.sheet); },
         formatSwitchStudentNames: function() { that.doSwitchStudentNames(that.sheet); },
         formatSetShadedRows: function() { that.doSetShadedRows(that.sheet); },
         help: function() { that.showHtmlSidebar(SIDEBAR_HELP); }
@@ -2087,6 +2056,69 @@ Exposify.prototype.showHtmlSidebar = function(sidebar) {
 } // end Exposify.prototype.showHtmlSidebar
 
 
+// FORMAT FUNCTIONS
+
+
+/**
+ * Apply a format to a sheet.
+ * @param {Sheet} sheet - The Sheet object to which to apply the format.
+ */
+Format.prototype.apply = function(sheet) {
+  try {
+    var headingRange = sheet.getRange(3, 1, 1, this.columnHeadings.length); // cell range for gradebook column headings
+    var centerRange = sheet.getRange(3, 3, this.lastRow, this.lastColumn); // cell range for central part of gradebook, where grade data is actually entered
+    var topRowsRange = sheet.getRange(1, 1, 3, this.lastColumn); // rows to keep at the top of the spreadsheet view
+    var titleRange = sheet.getRange('A1:A2'); // course name and semester titles
+    var mergeTitleRange = sheet.getRange('A1:B2'); // we want to merge each of these with the following cell to create a bigger space for the titles
+    var mergeRange = sheet.getRange(1, 3, 2, this.lastColumn - 2); // merge the empty columns in the top rows so it looks nicer
+    var cornerRange = sheet.getRange('A3:B3'); // where the frozen rows and columns intersect
+    var fullRange = sheet.getRange(1, 1, this.lastRow, this.lastColumn); // range of the entire gradebook
+    var maxRange = sheet.getRange(1, 1, sheet.getMaxRows(), sheet.getMaxColumns()); // range of the entire visible sheet
+    sheet.clear();
+    maxRange.clearDataValidations(); // this has to be done separately
+    sheet.setFrozenRows(0); // make sure only the correct rows and columns are frozen when formatting is complete
+    sheet.setFrozenColumns(0);
+    fullRange.breakApart(); // break apart any merged cells
+    this.setRowHeights(sheet);
+    this.setColumnWidths(sheet);
+    fullRange.setFontFamily(FONT); // set font
+    fullRange.setFontSize(11); // student names and grades font size
+    titleRange.setFontSizes([[16],[14]]); // titles font size
+    headingRange.setFontSize(9); // headings font size
+    cornerRange.setHorizontalAlignment('center'); // set text alignments
+    cornerRange.setVerticalAlignment('middle');
+    centerRange.setHorizontalAlignment('center');
+    centerRange.setVerticalAlignment('middle');
+    fullRange.setBorder(true, true, true, true, true, true); // set cell borders
+    titleRange.setValues([[this.courseTitle], [this.semester]]); // set titles
+    mergeTitleRange.mergeAcross(); // merge title cells
+    mergeRange.mergeAcross(); // merge other cells in the first two rows
+    headingRange.setValues([this.columnHeadings]); // set column headings
+    headingRange.setWrap(true); // set word wrapping
+    sheet.setFrozenRows(3); // freeze first three rows
+    sheet.setFrozenColumns(2); // freeze first two columns
+    if (this.gradeValidations === true) { expos.setGradeValidations(sheet, this.course.gradeValidations); } // set data validations for grades
+    if (this.courseFormat.hasOwnProperty('finalGradeFormulaRange')) { expos.doSetFormulas(sheet, this.courseNumber); } // apply final grade formula to this range
+    if (this.meetingDays.length !== 0) { expos.doFormatSheetAddAttendanceRecord(this.course, sheet); } // add an attendance sheet if the user asked for it
+    if (this.shadedRows === true) {
+      topRowsRange.setBackground(COLOR_SHADED);  // set background color of frozen rows
+      expos.doSetShadedRows(sheet); // set alternating color of student rows
+    }
+    sheet.setName(this.sheetName); // name sheet with section number
+  } catch(e) { expos.logError('Format.prototype.apply', e); }
+} // end Format.prototype.apply
+
+
+/**
+ * Set the format to shade alternating rows.
+ * @return {Format} this - Return this object for chaining.
+ */
+Format.prototype.setShadedRows = function() {
+  this.shadedRows = true;
+  return this;
+} // end Format.prototype.setShadedRows
+
+
 // FOLDERSTRUCTURE FUNCTIONS
 
 
@@ -2485,12 +2517,24 @@ Exposify.prototype.prototypeTest = function(params) {
  * Test a function defined on the Exposify prototype and log the return value.
  */
 function exposifyTest() {
-  var testFunction = 'prototypeTest';
-  var params = '18dD1aHHS1jJMIWTFCON0zbRV9zAG64eokNGlz8MJmvA'; // Google Doc to test revision history
+  var testFunction = 'fetchFileFromDrive';
+  var params = {id: '1byL9TE75sx_jMjcGw3TmLABSkJVPSoR85iBYw4E_Xq8', callback: 'testCallback'}; // Google Doc to test revision history
   var functions = Exposify.prototype;
   var returnValue = functions[testFunction].call(expos, params);
   Logger.log(returnValue);
 } // end exposifyTest
 
-
-var testDoc = '18dD1aHHS1jJMIWTFCON0zbRV9zAG64eokNGlz8MJmvA';
+Exposify.prototype.testCallback = function(params) {
+  var driveService = this.getDriveService();
+  var range = this.sheet.getRange('A1:W25').getValues();
+  var newDoc = SpreadsheetApp.create('New Test Doc Yay', 25, 30);
+  var newRange = newDoc.getRange('A1:W25').setValues(range);
+  var id = newDoc.getId();
+  var url = 'https://www.googleapis.com/drive/v2/files/' + id;
+  var response = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + driveService.getAccessToken() } });
+  var json = JSON.parse(response);
+  Utilities.sleep(30000);
+  var exportLink = json.exportLinks['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+  var blob = UrlFetchApp.fetch(exportLink, { headers: { Authorization: 'Bearer ' + driveService.getAccessToken() } });
+  var file = DriveApp.createFile(blob);
+}
