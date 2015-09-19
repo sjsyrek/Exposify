@@ -62,7 +62,6 @@
 //TODO: make it possible to specify the maximum number of students in a course
 //TODO: make sure internal functions that reference this actually work
 //TODO: add titles to alerts
-//TODO: consider removing sheet parameters from all functions
 
 
 /**
@@ -745,7 +744,16 @@ function assignmentsCalcWordCountsCallbackGetTitle() { return expos.assignmentsC
 function getOAuthToken() { return expos.getOAuthToken(); }
 function setupNewGradebookCallback(courseInfo) { expos.setupNewGradebook(expos.sheet, courseInfo); }
 function setupAddStudentsCallback(id) { expos.setupAddStudents(expos.sheet, id); }
+function adminGenerateWarningRosterCallback(warnings) { expos.adminGenerateWarningRoster(warnings); }
+function adminGenerateWarningRosterCallbackGetStudents() { return expos.adminGenerateWarningRosterGetStudents(expos.sheet); }
 
+
+Exposify.prototype.adminGenerateWarningRosterGetStudents = function(sheet) {
+  try {
+    var students = this.getStudents(sheet);
+    return students;
+  } catch(e) { this.logError('Exposify.prototype.adminGenerateWarningRosterGetStudents', e); }
+} // end Exposify.prototype.adminGenerateWarningRosterGetStudents
 
 // EXPOSIFY FUNCTIONS
 
@@ -834,7 +842,7 @@ Exposify.prototype.assignmentsCalcWordCountsGetTitle = function(sheet) {
   try {
     var courseTitle = this.getCourseTitle(sheet);
     var enrollment = this.getStudentCount(sheet);
-    var title = courseTitle + ' (' + enrollment + ' students)';
+    var title = courseTitle + '<br>(' + enrollment + ' students)';
     return title;
   } catch(e) { this.logError('Exposify.prototype.assignmentsCalcWordCountsGetTitle', e); }
 } // end Exposify.prototype.assignmentsCalcWordCountsGetTitle
