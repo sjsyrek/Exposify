@@ -489,11 +489,12 @@ function onOpen() {
  * @param {EventObject}
  */
 function onEdit(e) {
-  var sheet = expos.getActiveSheet();
+  var sheet = expos.sheet;
   var range = e.range;
   if (range.getRowIndex() < 3 && range.getColumn() < 3) {
     var msg = ALERT_EDIT_HEADER_WARNING;
-    expos.alert({msg: msg})();
+    var alert = expos.alert({msg: msg});
+    alert();
   }
 } // end onEdit
 
