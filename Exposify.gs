@@ -48,7 +48,6 @@
 
 
 //TODO: publish Exposify to GitHub
-//TODO: use sheet.appendRow() instead of getLastRow() where possible
 //TODO: add end comment to every function
 //TODO: add all functions to Exposify.prototype
 //TODO: make sure every function has error checking blocks
@@ -1694,7 +1693,7 @@ Exposify.prototype.getSectionTitle = function(sheet) {
     var courseSection = title.replace(re, '');
     return courseSection;
   } catch(e) { this.logError('Exposify.prototype.getSectionTitle', e); }
-} // Exposify.prototype.getSectionTitle
+} // end Exposify.prototype.getSectionTitle
 
 
 /**
@@ -1762,7 +1761,8 @@ Exposify.prototype.getStudents = function(sheet) {
  */
 Exposify.prototype.getStudentCount = function(sheet) {
   try {
-    var count = sheet.getLastRow() - 3; // the number of students is equal to the number of rows with content minus the three header rows
+    var rows = sheet.getRange(4, 1, MAX_STUDENTS, 1).getValues();
+    var count = rows.filter(function(cell) { return cell.toString().length > 0 }).length; // have I told you lately how much I love JavaScript?
     return count;
   } catch (e) { this.logError('Exposify.prototype.getStudentCount', e); }
 } // end Exposify.prototype.getStudentCount
@@ -2515,7 +2515,7 @@ Exposify.prototype.fetchFileFromDrive = function(params) {
  */
 Exposify.prototype.prototypeTest = function(params) {
   return {sheet: this.sheet, spreadsheet: this.spreadsheet, ui: this.ui};
-}
+} // end Exposify.prototype.prototypeTest
 
 /**
  * Test a function defined on the Exposify prototype and log the return value.
