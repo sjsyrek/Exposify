@@ -56,13 +56,9 @@
 //TODO: finish paper comparison diff function
 //TODO: automatically produce warning rosters and final gradebooks
 //TODO: make error messages more informative
-//TODO: make sure error logging is correct format
 //TODO: revise comments
-//TODO: make it possible to specify the maximum number of students in a course
 //TODO: make sure internal functions that reference this actually work
 //TODO: add titles to alerts
-//TODO: add quotes to document template essay titles
-//TODO: make sure word count function is correctly counting number of students
 
 
 /**
@@ -216,6 +212,11 @@ var COURSE_FORMATS = {
     columns: [215, 85, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 45, 55, 45],
     columnHeadings: ['Student Name', 'Student ID', 'RD 1', 'FD1 (L)', 'FD1 (I)', 'FD1 Grade', 'RD 2', 'FD2 (L)', 'FD2 (I)', 'FD2 Grade', 'RD 3', 'FD3 (L)', 'FD3 (I)', 'FD3 Grade', 'PR', 'RP RD1', 'RP RD2', 'RP Grade', 'RP (L)', 'RP (I)', 'Partici-\npation', 'Number Grade', 'Final Grade'],
     gradeValidations: {
+      paperGrades: {
+        requiredValues: ['A', 'B+', 'B', 'C+', 'C', 'NP'],
+        helpText: 'Enter A, B+, B, C+, C, or NP',
+        rangeToValidate: ['F4:F25', 'J4:J25', 'N4:N25', 'R4:R25', 'U4:V25']
+      },
       roughDraftStatus: {
         requiredValues: ['X'],
         helpText: 'Enter X if this assignment is complete',
@@ -236,10 +237,12 @@ var COURSE_FORMATS = {
         helpText: 'Enter P or NP',
         rangeToValidate: ['O4:O25']
       },
+      /*
       numericGrades: {
         helpText: 'Enter a numeric grade from 0–100',
         rangeToValidate: ['F4:F25', 'J4:J25', 'N4:N25', 'R4:R25', 'U4:V25']
       },
+      */
       finalGrades: {
         requiredValues: ['A', 'B+', 'B', 'C+', 'C', 'NC', 'F', 'TF', 'TZ'],
         helpText: 'Enter A, B+, B, C+, C, NC, F, TF, or TZ',
@@ -253,13 +256,17 @@ var COURSE_FORMATS = {
        * @return {Array} Object.numeric - The numeric grade validations.
        */
       getGradeValidations: function() {
+        var nonNumeric = [this.paperGrades, this.roughDraftStatus, this.lateFinalStatus, this.incompleteFinalStatus, this.proposalGrade, this.finalGrades];
+        return {nonNumeric: nonNumeric}; // package and return validation data
+        /*
         var nonNumeric = [this.roughDraftStatus, this.lateFinalStatus, this.incompleteFinalStatus, this.proposalGrade, this.finalGrades];
         var numeric = [this.numericGrades];
         return {nonNumeric: nonNumeric, numeric: numeric}; // package and return validation data
+        */
       }
-    },
-    finalGradeFormula: '((((F$ + J$ + N$) / 300) * .45) + ((R$ / 100) * .40) + ((U$ / 100) * .15)) * 100',
-    finalGradeFormulaRange: 'V4:V25'
+    }//,
+    //finalGradeFormula: '((((F$ + J$ + N$) / 300) * .45) + ((R$ / 100) * .40) + ((U$ / 100) * .15)) * 100',
+    //finalGradeFormulaRange: 'V4:V25'
   },
   '201': {
     name: 'Research 201',
@@ -424,7 +431,7 @@ var TEMPLATE_PARAGRAPHS = [
 ];
 var TEMPLATE_WORKS_CITED = {
   author: 'Fredrickson, Barbara. ',
-  title: 'Selections from Love 2.0: How Our Supreme Emotion Affects Everything We Feel, Think, Do, and Become. ',
+  title: '\'Selections from Love 2.0: How Our Supreme Emotion Affects Everything We Feel, Think, Do, and Become.\' ',
   volume: 'The New Humanities Reader. ',
   info: '5th ed. Stamford, CT: Cengage, 2015. 105–128. Print.'
 };
