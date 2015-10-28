@@ -47,18 +47,15 @@
  */
 
 
-//TODO: publish Exposify to GitHub
-//TODO: add end comment to every function
 //TODO: add all functions to Exposify.prototype
 //TODO: make sure every function has error checking blocks
-//TODO: make sure all alerts actually call alert();
-//TODO: folder structure, folder sharing, collecting and returning assignments
+//TODO: rewrite functions for creating folder structure, folder sharing, collecting and returning assignments
 //TODO: finish paper comparison diff function
-//TODO: automatically produce warning rosters and final gradebooks
+//TODO: write warning roster functions
 //TODO: make error messages more informative
 //TODO: revise comments
-//TODO: make sure internal functions that reference this actually work
-//TODO: add titles to alerts
+//TODO: make sure internal functions that reference `this` actually work
+//TODO: add titles to all alerts
 
 
 /**
