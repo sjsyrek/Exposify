@@ -62,6 +62,8 @@
 //TODO: make it possible to specify the maximum number of students in a course
 //TODO: make sure internal functions that reference this actually work
 //TODO: add titles to alerts
+//TODO: add quotes to document template essay titles
+//TODO: make sure word count function is correctly counting number of students
 
 
 /**
@@ -483,22 +485,6 @@ function onOpen() {
 } // end onOpen
 
 
-/**
- * Warn the user not to edit the name of the course or the semester, lest none of the other Exposify
- * functions work as intended.
- * @param {EventObject}
- */
-function onEdit(e) {
-  var sheet = expos.sheet;
-  var range = e.range;
-  if (range.getRowIndex() < 3 && range.getColumn() < 3) {
-    var msg = ALERT_EDIT_HEADER_WARNING;
-    var alert = expos.alert({msg: msg});
-    alert();
-  }
-} // end onEdit
-
-
 // CONSTRUCTORS
 
 
@@ -843,7 +829,7 @@ Exposify.prototype.assignmentsCalcWordCountsGetTitle = function(sheet) {
   try {
     var courseTitle = this.getCourseTitle(sheet);
     var enrollment = this.getStudentCount(sheet);
-    var title = courseTitle + '<br>(' + enrollment + ' students)';
+    var title = courseTitle + ' (' + enrollment + ' students)';
     return title;
   } catch(e) { this.logError('Exposify.prototype.assignmentsCalcWordCountsGetTitle', e); }
 } // end Exposify.prototype.assignmentsCalcWordCountsGetTitle
@@ -1177,6 +1163,51 @@ Exposify.prototype.doMakeGradeValidations = function(courseNumber) {
 
 
 /**
+ * Make a new Google Docs file for use as a paper template.
+ * @param {string} title - The title of the Docs file.
+ * @return {Document} - The Google Apps Document object.
+ */
+Exposify.prototype.doMakeNewTemplate = function(title) {
+  try {
+    var styles = {};
+    styles[DocumentApp.Attribute.BOLD] = false;
+    styles[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT] = DocumentApp.HorizontalAlignment.LEFT;
+    styles[DocumentApp.Attribute.LINE_SPACING] = 1.29;
+    styles[DocumentApp.Attribute.SPACING_AFTER] = 11.5;
+    styles[DocumentApp.Attribute.INDENT_FIRST_LINE] = 0;
+    var bodyStyles = {}
+    bodyStyles[DocumentApp.Attribute.FONT_FAMILY] = 'Garamond';
+    bodyStyles[DocumentApp.Attribute.FONT_SIZE] = 12;
+    bodyStyles[DocumentApp.Attribute.MARGIN_BOTTOM] = 144;
+    bodyStyles[DocumentApp.Attribute.MARGIN_LEFT] = 108;
+    bodyStyles[DocumentApp.Attribute.MARGIN_RIGHT] = 144;
+    bodyStyles[DocumentApp.Attribute.MARGIN_TOP] = 144;
+    var indent = {}
+    indent[DocumentApp.Attribute.INDENT_START] = 18;
+    var that = this;
+    var document = DocumentApp.create(title);
+    var body = document.getBody();
+    body.setAttributes(bodyStyles);
+    var title = body.getParagraphs()[0].editAsText();
+    title.setAttributes(styles);
+    title.setText(TEMPLATE_TITLE).setBold(true);
+    var bodyText = TEMPLATE_PARAGRAPHS;
+    bodyText.forEach(function(paragraph) {
+      var bodyParagraph = body.appendParagraph(paragraph).editAsText();
+      bodyParagraph.setAttributes(styles);
+    });
+    body.appendParagraph('Works Cited').setAttributes(styles);
+    var worksCited = body.appendParagraph(TEMPLATE_WORKS_CITED.author + TEMPLATE_WORKS_CITED.title);
+    worksCited.appendText(TEMPLATE_WORKS_CITED.volume).setItalic(true);
+    worksCited.appendText(TEMPLATE_WORKS_CITED.info).setItalic(false);
+    worksCited.editAsText().setAttributes(styles).setAttributes(indent);
+    body.appendParagraph('').setAttributes(styles).setIndentStart(0);
+    return document;
+  } catch(e) { this.logError('Exposify.prototype.doMakeNewTemplate', e); }
+} // end Exposify.prototype.doMakeNewTemplate
+
+
+/**
  * Calculate a schedule for a course, which is complicated so I don't know if it will always be 100% accurate but probably good enough.
  * I am going to burn in hell for writing this function.
  * @param {Date} semesterBeginsDate - The first day of the semester.
@@ -1235,50 +1266,6 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
     return daysToMeet; // an array of text dates ready to be inserted directly into the spreadsheet
   } catch(e) { this.logError('Exposify.prototype.doMakeSchedule', e); }
 } // end Exposify.prototype.doMakeSchedule
-
-
-/**
- * Make a new Google Docs file for use as a paper template.
- * @param {string} title - The title of the Docs file.
- * @return {Document} - The Google Apps Document object.
- */
-Exposify.prototype.doMakeNewTemplate = function(title) {
-  try {
-    var styles = {};
-    styles[DocumentApp.Attribute.BOLD] = false;
-    styles[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT] = DocumentApp.HorizontalAlignment.LEFT;
-    styles[DocumentApp.Attribute.LINE_SPACING] = 1.29;
-    styles[DocumentApp.Attribute.SPACING_AFTER] = 11.5;
-    styles[DocumentApp.Attribute.INDENT_FIRST_LINE] = 0;
-    var bodyStyles = {}
-    bodyStyles[DocumentApp.Attribute.FONT_FAMILY] = 'Garamond';
-    bodyStyles[DocumentApp.Attribute.FONT_SIZE] = 12;
-    bodyStyles[DocumentApp.Attribute.MARGIN_BOTTOM] = 144;
-    bodyStyles[DocumentApp.Attribute.MARGIN_LEFT] = 108;
-    bodyStyles[DocumentApp.Attribute.MARGIN_RIGHT] = 144;
-    bodyStyles[DocumentApp.Attribute.MARGIN_TOP] = 144;
-    var indent = {}
-    indent[DocumentApp.Attribute.INDENT_START] = 18;
-    var that = this;
-    var document = DocumentApp.create(title);
-    var body = document.getBody();
-    body.setAttributes(bodyStyles);
-    var title = body.getParagraphs()[0].editAsText();
-    title.setAttributes(styles);
-    title.setText(TEMPLATE_TITLE).setBold(true);
-    var bodyText = TEMPLATE_PARAGRAPHS;
-    bodyText.forEach(function(paragraph) {
-      var bodyParagraph = body.appendParagraph(paragraph).editAsText();
-      bodyParagraph.setAttributes(styles);
-    });
-    body.appendParagraph('Works Cited').setAttributes(styles);
-    var worksCited = body.appendParagraph(TEMPLATE_WORKS_CITED.author + TEMPLATE_WORKS_CITED.title);
-    worksCited.appendText(TEMPLATE_WORKS_CITED.volume).setItalic(true);
-    worksCited.appendText(TEMPLATE_WORKS_CITED.info).setItalic(false);
-    worksCited.editAsText().setAttributes(styles).setAttributes(indent);
-    return document;
-  } catch(e) { this.logError('Exposify.prototype.doMakeNewTemplate', e); }
-} // end Exposify.prototype.doMakeNewTemplate
 
 
 /**
@@ -1876,7 +1863,11 @@ Exposify.prototype.logError = function(callingFunction, traceback) {
     var email = spreadsheet.getOwner().getEmail();
     var id = spreadsheet.getId();
     var info = [timestamp, email, id, callingFunction, traceback];
-    var pasteRange = errorLogSheet.getRange((errorLogSheet.getLastRow() + 1), 1, 1, 5);
+    var lastRow = errorLogSheet.getLastRow();
+    var pasteRange = errorLogSheet.getRange((lastRow + 1), 1, 1, 5);
+    if (sheet.getMaxRows() === lastRow) {
+      errorLogSheet.insertRowAfter(lastRow);
+    }
     pasteRange.setValues([info]);
   }
   var msg = 'You can tell Steve you saw this error message, and maybe he can fix it:\n(' + errorLogSheet.getLastRow() + ') ' + traceback;
@@ -1902,7 +1893,11 @@ Exposify.prototype.logInstall = function() {
     var email = spreadsheet.getOwner().getEmail();
     var id = spreadsheet.getId();
     var info = [timestamp, email, id];
-    var pasteRange = installLogSheet.getRange((installLogSheet.getLastRow() + 1), 1, 1, 3);
+    var lastRow = installLogSheet.getLastRow();
+    var pasteRange = installLogSheet.getRange((lastRow + 1), 1, 1, 3);
+    if (sheet.getMaxRows() === lastRow) {
+      errorLogSheet.insertRowAfter(lastRow);
+    }
     pasteRange.setValues([info]);
   }
 } // end Exposify.prototype.logInstall
