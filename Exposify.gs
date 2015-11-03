@@ -2259,9 +2259,10 @@ Exposify.prototype.setupCreateFolderStructure = function(sheet) {
         deletedFolders.push(name);
       }
     });
-    var msg = 'Finished!\n\n';
+    var msg = 'Finished!\n';
     if (createdFolders.length > 0) {
-      msg += 'Folders created:\n\n' + createdFolders.join('\n');
+      msg += '\nFolders created:\n\n' + createdFolders.join('\n');
+      msg += '\n';
     }
     if (deletedFolders.length > 0) {
       msg += '\nFolders removed:\n\n' + deletedFolders.join('\n');
