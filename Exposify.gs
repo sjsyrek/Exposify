@@ -54,8 +54,6 @@
 //TODO: write warning roster functions
 //TODO: make error messages more informative
 //TODO: revise comments
-//TODO: make sure internal functions that reference `this` actually work
-//TODO: add titles to all alerts
 
 
 /**
@@ -2056,12 +2054,12 @@ Exposify.prototype.setupAddStudents = function(sheet, id) {
       var params = {sheet: sheet, id: id, mimeType: MIME_TYPE_CSV};
       students = this.doParseSpreadsheet(params);
     } else {
-      var alert = this.alert({msg: ERROR_SETUP_ADD_STUDENTS_INVALID.replace('$', filename)}); // '$' is a wildcard value that is replaced with the filename
+      var alert = this.alert({msg: ERROR_SETUP_ADD_STUDENTS_INVALID.replace('$', filename), title: 'Setup Add Students'}); // '$' is a wildcard value that is replaced with the filename
       alert();
       return;
     }
     if (students.length === 0) {
-      var alert = this.alert({msg: ERROR_SETUP_ADD_STUDENTS_EMPTY.replace('$', filename)});
+      var alert = this.alert({msg: ERROR_SETUP_ADD_STUDENTS_EMPTY.replace('$', filename), title: 'Setup Add Students'});
       alert();
     } else {
       var params = {sheet: sheet, students: students};
@@ -2069,7 +2067,7 @@ Exposify.prototype.setupAddStudents = function(sheet, id) {
       spreadsheet.toast(ALERT_SETUP_ADD_STUDENTS_SUCCESS.replace('$', filename), TOAST_TITLE, TOAST_DISPLAY_TIME);
     }
   } catch(e) {
-    var alert = this.alert({msg: ERROR_SETUP_ADD_STUDENTS})
+    var alert = this.alert({msg: ERROR_SETUP_ADD_STUDENTS, title: 'Setup Add Students'});
     alert();
     this.logError('Exposify.prototype.setupAddStudents', e);
   }
@@ -2183,7 +2181,7 @@ Exposify.prototype.setupNewGradebook = function(sheet, courseInfo) {
   var newName = courseInfo.course === OTHER_COURSE_NUMBER ? courseInfo.section : courseInfo.course + ':' + courseInfo.section; // only show the course number if it's real
   var exists = spreadsheet.getSheetByName(newName);
   if (exists !== null && sheet.getName() === newName) {
-    var alert = this.alert({msg: ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS.replace('$', newName)}); // avoid creating a new sheet with the same name as an existing sheet
+    var alert = this.alert({msg: ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS.replace('$', newName), title: 'Setup New Gradebook'}); // avoid creating a new sheet with the same name as an existing sheet
     alert();
     return;
   }
@@ -2196,11 +2194,11 @@ Exposify.prototype.setupNewGradebook = function(sheet, courseInfo) {
     if (checkStatus === true) {
       spreadsheet.toast(ALERT_SETUP_NEW_GRADEBOOK_SUCCESS.replace('$', newCourse.nameSection), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
     } else {
-      var alert = this.alert({msg: ERROR_SETUP_NEW_GRADEBOOK_FORMAT});
+      var alert = this.alert({msg: ERROR_SETUP_NEW_GRADEBOOK_FORMAT, title: 'Setup New Gradebook'});
       alert();
     }
   } catch(e) {
-    var alert = this.alert({msg: ERROR_SETUP_NEW_GRADEBOOK_FORMAT});
+    var alert = this.alert({msg: ERROR_SETUP_NEW_GRADEBOOK_FORMAT, title: 'Setup New Gradebook'});
     alert();
     this.logError('Exposify.prototype.setupNewGradebook', e);
   }
@@ -2440,7 +2438,7 @@ Exposify.prototype.getAuthorizationUrl = function() {
       .setHeight(dialog.height);
     this.showModalDialog(page, dialog.title);
   } else {
-    this.alert({msg: DIALOG_DRIVE_AUTHORIZATION.error_msg})();
+    this.alert({msg: DIALOG_DRIVE_AUTHORIZATION.error_msg, title: 'Drive Authorization'})();
   }
 }
 
