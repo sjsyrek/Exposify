@@ -2100,6 +2100,67 @@ Exposify.prototype.setupCreateContacts = function(sheet) {
 
 
 /**
+ * Create a folder structure in Google Drive for the gradebook on the active sheet.
+ * @param {Sheet} sheet - The Google Apps Sheet object with the gradebook for which to create a folder structure in Drive.
+ */
+Exposify.prototype.setupCreateFolderStructure = function(sheet) {
+  try {
+    var rootFolder = DriveApp.getRootFolder();
+    var semesterFolder = this.getSemesterFolder(sheet);
+    var courseFolder = this.getCourseFolder(sheet);
+    var gradedPapersFolder = this.getGradedPapersFolder(sheet);
+    var studentFolders = this.getStudentFolders(sheet) || [];
+    var createdFolders = [];
+    var deletedFolders = [];
+    if (semesterFolder === null) {
+      var semesterTitle = this.getSemesterTitle(sheet);
+      var semesterFolder = rootFolder.createFolder(semesterTitle);
+      createdFolders.push(semesterFolder.getName());
+    }
+    if (courseFolder === null) {
+      var courseTitle = this.getCourseTitle(sheet);
+      var courseFolder = semesterFolder.createFolder(courseTitle);
+      createdFolders.push(courseFolder.getName());
+    }
+    if (gradedPapersFolder === null) {
+      var gradedPapersFolder = courseFolder.createFolder(GRADED_PAPERS_FOLDER_NAME);
+      createdFolders.push(gradedPapersFolder.getName());
+    }
+    var studentNames = this.getStudentNames(sheet);
+    var studentFolderNames = studentFolders.map(function(folder) { return folder.getName(); });
+    var that = this;
+    var foldersToCreate = studentNames.filter(function(studentName) { return that.arrayContains(studentFolderNames, studentName) ? false : true; });
+    var foldersToDelete = studentFolderNames.filter(function(studentFolderName) { return that.arrayContains(studentNames, studentFolderName) ? false : true; });
+    foldersToCreate.forEach(function(name) {
+      var newFolder = gradedPapersFolder.createFolder(name);
+      createdFolders.push(name);
+    });
+    var that = this;
+    studentFolders.forEach(function(folder) {
+      var name = folder.getName();
+      if (that.arrayContains(foldersToDelete, name)) {
+        folder.setTrashed(true);
+        deletedFolders.push(name);
+      }
+    });
+    var msg = 'Finished!\n';
+    if (createdFolders.length > 0) {
+      msg += '\nFolders created:\n\n' + createdFolders.join('\n');
+      msg += '\n';
+    }
+    if (deletedFolders.length > 0) {
+      msg += '\nFolders removed:\n\n' + deletedFolders.join('\n');
+    }
+    if (createdFolders.length === 0 && deletedFolders.length === 0) {
+      msg += 'No folders have been created or destroyed.';
+    }
+    var alert = this.alert({msg: msg, title: 'Create Folder Structure'});
+    alert();
+  } catch(e) { this.logError('Exposify.prototype.assignmentsCreatePaperTemplates', e); }
+} // end Exposify.prototype.setupCreateFolderStructure
+
+
+/**
  * Convert user input, collected from a dialog box, into a newly formatted gradebook.
  * @param {Object} courseInfo - User input collected into an object.
  * @param {string} courseInfo.course - A course number.
@@ -2217,264 +2278,6 @@ Format.prototype.setShadedRows = function() {
 
 // FOLDERSTRUCTURE FUNCTIONS
 
-
-// Create a folder hierarchy with a base folder for the semester, a section folder for shared documents, and one folder for each student for graded papers
-Exposify.prototype.setupCreateFolderStructure = function(sheet) {
-  try {
-    var rootFolder = DriveApp.getRootFolder();
-    var semesterFolder = this.getSemesterFolder(sheet);
-    var courseFolder = this.getCourseFolder(sheet);
-    var gradedPapersFolder = this.getGradedPapersFolder(sheet);
-    var studentFolders = this.getStudentFolders(sheet) || [];
-    var createdFolders = [];
-    var deletedFolders = [];
-    if (semesterFolder === null) {
-      var semesterTitle = this.getSemesterTitle(sheet);
-      var semesterFolder = rootFolder.createFolder(semesterTitle);
-      createdFolders.push(semesterFolder.getName());
-    }
-    if (courseFolder === null) {
-      var courseTitle = this.getCourseTitle(sheet);
-      var courseFolder = semesterFolder.createFolder(courseTitle);
-      createdFolders.push(courseFolder.getName());
-    }
-    if (gradedPapersFolder === null) {
-      var gradedPapersFolder = courseFolder.createFolder(GRADED_PAPERS_FOLDER_NAME);
-      createdFolders.push(gradedPapersFolder.getName());
-    }
-    var studentNames = this.getStudentNames(sheet);
-    var studentFolderNames = studentFolders.map(function(folder) { return folder.getName(); });
-    var that = this;
-    var foldersToCreate = studentNames.filter(function(studentName) { return that.arrayContains(studentFolderNames, studentName) ? false : true; });
-    var foldersToDelete = studentFolderNames.filter(function(studentFolderName) { return that.arrayContains(studentNames, studentFolderName) ? false : true; });
-    foldersToCreate.forEach(function(name) {
-      var newFolder = gradedPapersFolder.createFolder(name);
-      createdFolders.push(name);
-    });
-    var that = this;
-    studentFolders.forEach(function(folder) {
-      var name = folder.getName();
-      if (that.arrayContains(foldersToDelete, name)) {
-        folder.setTrashed(true);
-        deletedFolders.push(name);
-      }
-    });
-    var msg = 'Finished!\n';
-    if (createdFolders.length > 0) {
-      msg += '\nFolders created:\n\n' + createdFolders.join('\n');
-      msg += '\n';
-    }
-    if (deletedFolders.length > 0) {
-      msg += '\nFolders removed:\n\n' + deletedFolders.join('\n');
-    }
-    if (createdFolders.length === 0 && deletedFolders.length === 0) {
-      msg += 'No folders have been created or destroyed.';
-    }
-    var alert = this.alert({msg: msg, title: 'Create Folder Structure'});
-    alert();
-  } catch(e) { this.logError('Exposify.prototype.assignmentsCreatePaperTemplates', e); }
-} // end Exposify.prototype.setupCreateFolderStructure
-
-
-FolderStructure.prototype.getSemesterFolder = function() {
-    var folderIterator = this.rootFolder.getFoldersByName(this.semesterTitle);
-    if (folderIterator.hasNext()) {
-      var folder = folderIterator.next();
-      if (folder.getName() === this.semesterTitle) {
-        return folder;
-      }
-    }
-    return null;
-  };
-
-FolderStructure.prototype.getCourseFolder = function() {
-    if (this.semesterFolder !== null) {
-      var folderIterator = this.semesterFolder.getFoldersByName(this.courseTitle);
-      if (folderIterator.hasNext()) {
-        var folder = folderIterator.next();
-        if (folder.getName() === this.courseTitle) {
-          return folder;
-        }
-      }
-    }
-    return null;
-  };
-
-FolderStructure.prototype.getGradedFolder = function() {
-    if (this.semesterFolder !== null) {
-      var folderIterator = this.semesterFolder.getFoldersByName(GRADED_PAPERS_FOLDER_NAME);
-      if (folderIterator.hasNext()) {
-        var folder = folderIterator.next();
-        if (folder.getName() === GRADED_PAPERS_FOLDER_NAME) {
-          return folder;
-        }
-      }
-    }
-    return null;
-  };
-
-FolderStructure.prototype.getStudentFolders = function() {
-    if (this.gradedFolder !== null) {
-      var studentFolders = [];
-      var folderIterator = this.gradedFolder.getFolders();
-      while (folderIterator.hasNext()) {
-        var folder = folderIterator.next();
-        studentFolders.push(folder);
-      }
-      return studentFolders;
-    }
-    return null;
-  };
-
-// Create a course folder hierarchy
-// need to fix checking of Graded folder, because it asks to delete students from other sections
-// this function is gargantuan at the moment, in desperate need of refactoring
-function doCreateFolderStructure(sheet) {
-    var semesterTitle = getSemesterTitle(sheet);
-    var courseTitle = getCourseTitle(sheet);
-    var folderStructure = new FolderStructure(semesterTitle, courseTitle);
-    var root = folderStructure.rootFolder;
-    var semesterFolder = folderStructure.getSemesterFolder();
-    var courseFolder = folderStructure.getCourseFolder();
-    var gradedFolder = folderStructure.getGradedFolder();
-    var existingStudentFolders = folderStructure.getStudentFolders();
-    var newStudents = getStudentNames(sheet);
-    var createdFolders = [];
-    var deletedFolders = [];
-    var foldersNotCreated = [];
-    var foldersToDelete = [];
-    var error = 0;
-    if (semesterFolder === null) { // I think I can refactor this bit into a separate function
-      try {
-        semesterFolder = root.createFolder(semesterTitle).setShareableByEditors(false).setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.EDIT);
-        var newSemesterFolder = new Folder(semesterTitle, root, 'My Drive/' + semesterTitle);
-        createdFolders.push(newSemesterFolder);
-      } catch(e) {
-        if (!arrayContains(createdFolders, newSemesterFolder)) {
-          foldersNotCreated.push(semesterTitle);
-        }
-        logError('doCreateFolderStructure', e);
-        error = 1;
-      }
-    }
-    if (courseFolder === null) {
-      try {
-        courseFolder = semesterFolder.createFolder(courseTitle).setShareableByEditors(false).setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.EDIT);
-        var newCourseFolder = new Folder(courseTitle, semesterFolder, 'My Drive/' + semesterTitle + '/' + courseTitle);
-        createdFolders.push(newCourseFolder);
-      } catch(e) {
-        if (!arrayContains(createdFolders, newCourseFolder)) {
-          foldersNotCreated.push(courseTitle);
-        }
-        logError('doCreateFolderStructure', e);
-        error = 1;
-      }
-    }
-    if (gradedFolder === null) {
-      try {
-        gradedFolder = semesterFolder.createFolder(GRADED_PAPERS_FOLDER_NAME).setShareableByEditors(false).setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.EDIT);
-        var newGradedFolder = new Folder(GRADED_PAPERS_FOLDER_NAME, semesterFolder, 'My Drive/' + semesterTitle + '/' + GRADED_PAPERS_FOLDER_NAME);
-        createdFolders.push(newGradedFolder);
-      } catch(e) {
-        if (!arrayContains(createdFolders, newGradedFolder)) {
-          foldersNotCreated.push(GRADED_PAPERS_FOLDER_NAME);
-        }
-        logError('doCreateFolderStructure', e);
-        error = 1;
-      }
-    }
-    if (existingStudentFolders !== null) {
-      try {
-        var updatedStudents = newStudents.slice();
-        for (folder = 0; folder < existingStudentFolders.length; folder += 1) {
-          var name = existingStudentFolders[folder].getName();
-          if (arrayContains(newStudents, name)) {
-              updatedStudents.splice(newStudents.indexOf(name), 1);
-          } else {
-            foldersToDelete.push(existingStudentFolders[folder]);
-          }
-        }
-        newStudents = updatedStudents.slice();
-//
-//        var updatedStudents = newStudents;
-//        existingStudentFolders.forEach( function(folder) {
-//        var name = folder.getName();
-//        if (this.contains(name)) {
-//          this.splice(this.indexOf(name), 1);
-//          } else if (!this.contains(name)) {
-//            foldersToDelete.push(folder);
-//          }
-//        }, updatedStudents);
-//        newStudents = updatedStudents;
-      } catch(e) {
-        logError('doCreateFolderStructure', e);
-      }
-    }
-    newStudents.forEach( function(student) {
-      try {
-        var studentFolder = gradedFolder.createFolder(student).setShareableByEditors(false).setSharing(DriveApp.Access.PRIVATE, DriveApp.Permission.EDIT);
-        var newStudentFolder = new Folder(student, GRADED_PAPERS_FOLDER_NAME, 'My Drive/' + semesterTitle + '/' + GRADED_PAPERS_FOLDER_NAME + '/' + student);
-        createdFolders.push(newStudentFolder);
-      } catch(e) {
-        if (!arrayContains(createdFolders, newStudentFolder)) {
-          foldersNotCreated.push(student);
-        }
-        logError('doCreateFolderStructure', e);
-        error = 1;
-      }
-    });
-    var deleteAlert = function() {
-      var alert = 'Is it OK to delete the following student folders?\n\n';
-      foldersToDelete.forEach( function(folder) { alert = alert.concat(folder.getName() + '\n'); });
-      return alert;
-    };
-    var resultAlert = function() {
-      var created = 'No new folders were created.\n';
-      var deleted = '\nNo folders were trashed.\n';
-      if (createdFolders.length !== 0) {
-        created = 'These folders were created:\n\n';
-        createdFolders.forEach( function(folder) { created = created.concat(folder.path + '\n'); });
-      }
-      if (deletedFolders.length !== 0) {
-        deleted = '\nThese folders were trashed:\n\n';
-        deletedFolders.forEach( function(folder) { deleted = deleted.concat(folder.getName() + '\n'); });
-      }
-      var alert = created + deleted;
-      return alert;
-    };
-    var errorAlert = function() {
-      var alert = 'There was a problem with some folders.\n\n';
-      if (foldersNotCreated.length !== 0) {
-        alert = alert.concat('The following folders could not be created:\n\n');
-        foldersNotCreated.forEach( function(folder) { alert = alert.concat(folder + '\n'); });
-      }
-      if (foldersToDelete.length !== 0) {
-        alert = alert.concat('The following folders could not be trashed:\n\n');
-        foldersToDelete.forEach( function(folder) { alert = alert.concat(folder.getName() + '\n'); });
-      }
-      return alert;
-    };
-    if (foldersToDelete.length !== 0 && alertYesNo(deleteAlert())) {
-      foldersToDelete.forEach( function(folder) {
-        try {
-          var parent = gradedFolder;
-          parent.removeFolder(folder);
-          folder.setTrashed(true);
-          deletedFolders.push(folder);
-          //foldersToDelete.splice(foldersToDelete.indexOf(folder), 1);
-        } catch(e) {
-          if (!arrayContains(deletedFolders, folder)) {
-            error = 1;
-          }
-          logError('doCreateFolderStructure', e);
-        }
-      });
-    }
-    ui.alert(resultAlert());
-    if (error === 1) {
-      ui.alert(errorAlert());
-    }
-}
 
 function setupShareFolders() {
   try {
