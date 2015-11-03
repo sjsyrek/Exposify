@@ -461,7 +461,8 @@ function onInstall(e) {
 
 /**
  * Execute as a trigger whenever the attached Google Spreadsheet is opened. Add the custom
- * Exposify menu to the menu bar.
+ * Exposify menu to the menu bar. Menu commands call the specified function, which passes control
+ * to the command handler function.
  */
 function onOpen() {
   var ui = expos.ui;
@@ -1540,8 +1541,8 @@ Exposify.prototype.getCourseData = function(course) {
 Exposify.prototype.getCourseFolder = function(sheet) {
   try {
     var courseTitle = this.getCourseTitle(sheet);
-    var folderIter = DriveApp.getFoldersByName(courseTitle);
-    return folderIter.hasNext() ? folderIter.next() : null; // return the first match found
+    var semesterFolder = this.getSemesterFolder(sheet);
+    return this.getFolder(semesterFolder, courseTitle);
   } catch(e) { this.logError('Exposify.prototype.getCourseFolder', e); }
 } // end Exposify.prototype.getCourseFolder
 
@@ -1565,7 +1566,7 @@ Exposify.prototype.getCourseNumber = function(sheet) {
 
 
 /**
- * Return the name of the course for a given gradebook.
+ * Return the name and section of the course for a given gradebook, e.g. "Expository Writing AB"
  * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve the course name.
  * @return {string} courseTitle - The name of the course, with section number appended.
  */
@@ -1604,6 +1605,30 @@ Exposify.prototype.getFirstDayOfSpringBreak = function(year) {
   var firstDayOfMarch = new Date(year, 3, 1).getDay();
   return firstDayOfMarch + (6 - firstDayOfMarch) + 7; // Spring Break starts the second Saturday of March, so find out the first day of March, add days to get to Saturday, and add 7 to that
 } // end Exposify.prototype.getFirstDayOfSpringBreak
+
+
+/**
+ * Get the specified folder for the gradebook on the active spreadsheet.
+ * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated folder.
+ */
+Exposify.prototype.getFolder = function(folder, name) {
+  try {
+    var folderIter = folder.getFoldersByName(name);
+    return folderIter.hasNext() ? folderIter.next() : null; // return the first match found
+  } catch(e) { this.logError('Exposify.prototype.getFolder', e); }
+} // end Exposify.prototype.getFolder
+
+
+/**
+ * Get the graded papers folder for the gradebook on the active spreadsheet.
+ * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated graded papers folder.
+ */
+Exposify.prototype.getGradedPapersFolder = function(sheet) {
+  try {
+    var courseFolder = this.getCourseFolder(sheet);
+    return this.getFolder(courseFolder, GRADED_PAPERS_FOLDER_NAME);
+  } catch(e) { this.logError('Exposify.prototype.getGradedPapersFolder', e); }
+} // end Exposify.prototype.getGradedPapersFolder
 
 
 /**
@@ -1695,6 +1720,29 @@ Exposify.prototype.getOAuthToken = function() {
 
 
 /**
+ * Get the root Google Drive folder.
+ */
+Exposify.prototype.getRootFolder = function() {
+  try {
+    return DriveApp.getRootFolder();
+  } catch(e) { this.logError('Exposify.prototype.getRootFolder', e); }
+} // end Exposify.prototype.getRootFolder
+
+
+/**
+ * Get the semester folder for the gradebook on the active spreadsheet.
+ * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated semester folder.
+ */
+Exposify.prototype.getSemesterFolder = function(sheet) {
+  try {
+    var semesterTitle = this.getSemesterTitle(sheet);
+    var root = this.getRootFolder();
+    return this.getFolder(root, semesterTitle);
+  } catch(e) { this.logError('Exposify.prototype.getSemesterFolder', e); }
+} // end Exposify.prototype.getSemesterFolder
+
+
+/**
  * Return the name of the course for a given gradebook.
  * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve the course section.
  * @return {string} courseSection - The section of the course.
@@ -1779,6 +1827,27 @@ Exposify.prototype.getStudentCount = function(sheet) {
     return count;
   } catch (e) { this.logError('Exposify.prototype.getStudentCount', e); }
 } // end Exposify.prototype.getStudentCount
+
+
+/**
+ * Get the student folders for the gradebook on the active spreadsheet.
+ * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated student folders.
+ */
+Exposify.prototype.getStudentFolders = function(sheet) {
+  try {
+    var gradedPapersFolder = this.getGradedPapersFolder(sheet);
+    if (gradedPapersFolder !== null) {
+      var studentFolders = [];
+      var folderIterator = gradedPapersFolder.getFolders();
+      while (folderIterator.hasNext()) {
+        studentFolders.push(folderIterator.next());
+      }
+    }
+    else {
+      return null;
+    }
+  } catch(e) { this.logError('Exposify.prototype.getStudentFolders', e); }
+} // end Exposify.prototype.getStudentFolders
 
 
 /**
@@ -2142,7 +2211,51 @@ Format.prototype.setShadedRows = function() {
 // Create a folder hierarchy with a base folder for the semester, a section folder for shared documents, and one folder for each student for graded papers
 Exposify.prototype.setupCreateFolderStructure = function(sheet) {
   try {
-    //doCreateFolderStructure(sheet);
+    var rootFolder = DriveApp.getRootFolder();
+    var semesterFolder = this.getSemesterFolder(sheet);
+    var courseFolder = this.getCourseFolder(sheet);
+    var gradedPapersFolder = this.getGradedPapersFolder(sheet);
+    var studentFolders = this.getStudentFolders(sheet);
+    var createdFolders = [];
+    var deletedFolders = [];
+    if (semesterFolder === null) {
+      var semesterTitle = this.getSemesterTitle();
+      var semesterFolder = rootFolder.createFolder(semesterTitle);
+      createdFolders.push(semesterFolder.getName());
+    }
+    if (courseFolder === null) {
+      var courseTitle = this.getCourseTitle(sheet);
+      var courseFolder = semesterFolder.createFolder(courseTitle);
+      createdFolders.push(courseFolder.getName());
+    }
+    if (gradedPapersFolder === null) {
+      var gradedPapersFolder = courseFolder.createFolder(GRADED_PAPERS_FOLDER_NAME);
+      createdFolders.push(gradedPapersFolder.getName());
+    }
+    var studentNames = this.getStudentNames(sheet);
+    var studentFolderNames = studentFolders.map(function(folder) { return folder.getName(); });
+    var foldersToCreate = studentNames.filter(function(studentName) { return this.arrayContains(studentFolderNames, studentName) ? false : true; });
+    var foldersToDelete = studentFolderNames.filter(function(studentFolderName) { return this.arrayContains(studentNames, studentFolderName) ? false : true; });
+    foldersToCreate.forEach(function(name) {
+      var newFolder = gradedPapersFolder.createFolder(name);
+      createdFolders.push(name);
+    });
+    var that = this;
+    studentFolders.forEach(function(folder) {
+      var name = folder.getName();
+      if (that.arrayContains(foldersToDelete, name)) {
+        folder.setTrashed(true);
+        deletedFolders.push(name);
+      }
+    });
+    var msg = '';
+    if (createdFolders.length > 0) {
+      msg += 'Folders created:\n\n' + createdFolders.join('\n');
+    }
+    if (deletedFolders.length > 0) {
+      msg += '\nFolders removed:\n\n' + deletedFolders.join('\n');
+    }
+    this.alert({msg: msg, title: 'Create Folder Structure'});
   } catch(e) { this.logError('Exposify.prototype.assignmentsCreatePaperTemplates', e); }
 } // end Exposify.prototype.setupCreateFolderStructure
 
