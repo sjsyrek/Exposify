@@ -2259,14 +2259,18 @@ Exposify.prototype.setupCreateFolderStructure = function(sheet) {
         deletedFolders.push(name);
       }
     });
-    var msg = '';
+    var msg = 'Finished!\n\n';
     if (createdFolders.length > 0) {
       msg += 'Folders created:\n\n' + createdFolders.join('\n');
     }
     if (deletedFolders.length > 0) {
       msg += '\nFolders removed:\n\n' + deletedFolders.join('\n');
     }
-    this.alert({msg: msg, title: 'Create Folder Structure'});
+    if (createdFolders.length === 0 && deletedFolders.length === 0) {
+      msg += 'No folders have been created or destroyed.';
+    }
+    var alert = this.alert({msg: msg, title: 'Create Folder Structure'});
+    alert();
   } catch(e) { this.logError('Exposify.prototype.assignmentsCreatePaperTemplates', e); }
 } // end Exposify.prototype.setupCreateFolderStructure
 
