@@ -790,6 +790,9 @@ Exposify.prototype.alert = function(confirmation) {
  * @return {boolean}
  */
 Exposify.prototype.arrayContains = function(arr, item) {
+  if (arr.length < 1) {
+    return false;
+  }
   var i = arr.length;
   while (i--) {
     if (arr[i] === item) {
@@ -1542,7 +1545,8 @@ Exposify.prototype.getCourseFolder = function(sheet) {
   try {
     var courseTitle = this.getCourseTitle(sheet);
     var semesterFolder = this.getSemesterFolder(sheet);
-    return this.getFolder(semesterFolder, courseTitle);
+    var courseFolder = this.getFolder(semesterFolder, courseTitle);
+    return courseFolder;
   } catch(e) { this.logError('Exposify.prototype.getCourseFolder', e); }
 } // end Exposify.prototype.getCourseFolder
 
@@ -1613,8 +1617,12 @@ Exposify.prototype.getFirstDayOfSpringBreak = function(year) {
  */
 Exposify.prototype.getFolder = function(folder, name) {
   try {
-    var folderIter = folder.getFoldersByName(name);
-    return folderIter.hasNext() ? folderIter.next() : null; // return the first match found
+    if (folder !== null) {
+      var folderIter = folder.getFoldersByName(name);
+      return folderIter.hasNext() ? folderIter.next() : null; // return the first match found
+    } else {
+      return null;
+    }
   } catch(e) { this.logError('Exposify.prototype.getFolder', e); }
 } // end Exposify.prototype.getFolder
 
@@ -1737,7 +1745,8 @@ Exposify.prototype.getSemesterFolder = function(sheet) {
   try {
     var semesterTitle = this.getSemesterTitle(sheet);
     var root = this.getRootFolder();
-    return this.getFolder(root, semesterTitle);
+    var semesterFolder = this.getFolder(root, semesterTitle);
+    return semesterFolder;
   } catch(e) { this.logError('Exposify.prototype.getSemesterFolder', e); }
 } // end Exposify.prototype.getSemesterFolder
 
@@ -1842,6 +1851,7 @@ Exposify.prototype.getStudentFolders = function(sheet) {
       while (folderIterator.hasNext()) {
         studentFolders.push(folderIterator.next());
       }
+      return studentFolders;
     }
     else {
       return null;
@@ -2215,11 +2225,11 @@ Exposify.prototype.setupCreateFolderStructure = function(sheet) {
     var semesterFolder = this.getSemesterFolder(sheet);
     var courseFolder = this.getCourseFolder(sheet);
     var gradedPapersFolder = this.getGradedPapersFolder(sheet);
-    var studentFolders = this.getStudentFolders(sheet);
+    var studentFolders = this.getStudentFolders(sheet) || [];
     var createdFolders = [];
     var deletedFolders = [];
     if (semesterFolder === null) {
-      var semesterTitle = this.getSemesterTitle();
+      var semesterTitle = this.getSemesterTitle(sheet);
       var semesterFolder = rootFolder.createFolder(semesterTitle);
       createdFolders.push(semesterFolder.getName());
     }
@@ -2234,8 +2244,9 @@ Exposify.prototype.setupCreateFolderStructure = function(sheet) {
     }
     var studentNames = this.getStudentNames(sheet);
     var studentFolderNames = studentFolders.map(function(folder) { return folder.getName(); });
-    var foldersToCreate = studentNames.filter(function(studentName) { return this.arrayContains(studentFolderNames, studentName) ? false : true; });
-    var foldersToDelete = studentFolderNames.filter(function(studentFolderName) { return this.arrayContains(studentNames, studentFolderName) ? false : true; });
+    var that = this;
+    var foldersToCreate = studentNames.filter(function(studentName) { return that.arrayContains(studentFolderNames, studentName) ? false : true; });
+    var foldersToDelete = studentFolderNames.filter(function(studentFolderName) { return that.arrayContains(studentNames, studentFolderName) ? false : true; });
     foldersToCreate.forEach(function(name) {
       var newFolder = gradedPapersFolder.createFolder(name);
       createdFolders.push(name);
@@ -2642,8 +2653,8 @@ Exposify.prototype.prototypeTest = function(params) {
  * Test a function defined on the Exposify prototype and log the return value.
  */
 function exposifyTest() {
-  var testFunction = 'fetchFileFromDrive';
-  var params = {id: '1byL9TE75sx_jMjcGw3TmLABSkJVPSoR85iBYw4E_Xq8', callback: 'testCallback'}; // Google Doc to test revision history
+  var testFunction = 'setupCreateFolderStructure';
+  var params = expos.getSheet(); // Google Doc to test revision history
   var functions = Exposify.prototype;
   var returnValue = functions[testFunction].call(expos, params);
   Logger.log(returnValue);
