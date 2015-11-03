@@ -115,7 +115,6 @@ var ALERT_INSTALL_THANKS = 'Thanks for installing Exposify! Add a new section by
 var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. Do that before anything else.';
 var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '\'$\' successfully imported! You should double-check the spreadsheet to make sure it\'s correct.';
 var ALERT_SETUP_CREATE_CONTACTS_SUCCESS = 'New contact group successfully created for $.';
-var ALERT_SETUP_CREATE_FOLDER_STRUCTURE = 'This command will create or update the folder structure for your Expos section, including a shared coursework folder and individual folders for each student based on this sheet. Do you wish to proceed?';
 var ALERT_SETUP_CREATE_FOLDER_STRUCTURE_NOTHING_NEW = 'Nothing to update.';
 var ALERT_SETUP_SHARE_FOLDERS = 'This will share the course folder with all students and each student folder with that student, respectively. Do you wish to proceed?';
 var ALERT_SETUP_SHARE_FOLDERS_MISSING_COURSE_FOLDER = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command.';
@@ -134,7 +133,6 @@ var ERROR_SETUP_NEW_GRADEBOOK_FORMAT = 'There was a problem formatting the page.
 var ERROR_SETUP_ADD_STUDENTS = 'There was a problem reading the file.';
 var ERROR_SETUP_ADD_STUDENTS_EMPTY = 'I could not find any students in the file \"$\". Make sure you didn\'t modify it after downloading it from Sakai.';
 var ERROR_SETUP_ADD_STUDENTS_INVALID = '\'$\' is not a valid CSV or Google Sheets file. Please try again.';
-var ERROR_SETUP_CREATE_FOLDER_STRUCTURE = 'There was a problem creating the folder structure. Please try again.';
 var ERROR_SETUP_SHARE_FOLDERS = 'There was a problem sharing the folders. Please try again.';
 var ERROR_ASSIGNMENTS_CALC_WORD_COUNTS = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command.';
 
@@ -368,6 +366,15 @@ var DIALOG_SETUP_CREATE_CONTACTS = {
   },
   command: 'setupCreateContacts',
   error_msg: 'Unable to access contacts. Please try again.'
+};
+var DIALOG_SETUP_CREATE_FOLDER_STRUCTURE = {
+  alert: {
+    alertType: YES_NO,
+    msg: 'This command will create or update the folder structure for your Expos section, including a shared coursework folder and individual folders for each student based on this sheet. Do you wish to proceed?',
+    title: 'Create Folder Structure'
+  },
+  command: 'setupCreateFolderStructure',
+  error_msg: 'There was a problem creating the folder structure. Please try again.'
 };
 var DIALOG_ASSIGNMENTS_CREATE_TEMPLATES = {
   alert: {
@@ -704,6 +711,8 @@ function Exposify() {
 function exposifySetupNewGradebook() { expos.executeMenuCommand.call(expos, DIALOG_SETUP_NEW_GRADEBOOK); }
 function exposifySetupAddStudents() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_ADD_STUDENTS); }
 function exposifySetupCreateContacts() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_CREATE_CONTACTS); }
+function exposifySetupCreateFolderStructure() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_CREATE_FOLDER_STRUCTURE); }
+
 function exposifyCreatePaperTemplates() { expos.checkSheetStatus.call(expos, DIALOG_ASSIGNMENTS_CREATE_TEMPLATES); }
 function exposifyAssignmentsCalcWordCounts() { expos.checkSheetStatus.call(expos, {command: 'assignmentsCalcWordCounts'}); }
 function exposifyAdminGenerateWarningRoster() { expos.checkSheetStatus.call(expos, DIALOG_ADMIN_WARNING_ROSTER); }
@@ -713,7 +722,6 @@ function exposifyFormatSetShadedRows() { expos.checkSheetStatus.call(expos, {com
 function exposifyHelp() { expos.executeMenuCommand.call(expos, {command: 'help'}); }
 
 // old functions to be replaced
-function exposifySetupCreateFolderStructure() { return expos.setupCreateFolderStructure(); }
 function exposifySetupSharedFolders() { return expos.setupSharedFolders(); }
 function exposifyAssignmentsCopy() { return expos.assignmentsCopy(); }
 function exposifyAssignmentsReturn() { return expos.assignmentsReturn(); }
@@ -1409,6 +1417,7 @@ Exposify.prototype.executeMenuCommand = function(params) {
       var that = this; // have I told you lately that I love JavaScript?
       var commands = {
         setupCreateContacts: function() { that.setupCreateContacts(that.sheet); },
+        setupCreateFolderStructure: function() { that.setupCreateFolderStructure(that.sheet); },
         assignmentsCreatePaperTemplates: function() { that.assignmentsCreatePaperTemplates(that.sheet, response); },
         assignmentsCalcWordCounts: function() { that.showHtmlSidebar(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS); },
         adminGenerateGradebook: function() { that.doGenerateGradebook(that.sheet); },
@@ -2131,17 +2140,12 @@ Format.prototype.setShadedRows = function() {
 
 
 // Create a folder hierarchy with a base folder for the semester, a section folder for shared documents, and one folder for each student for graded papers
-function setupCreateFolderStructure() {
+Exposify.prototype.setupCreateFolderStructure = function(sheet) {
   try {
-  if (alertYesNo(ALERT_SETUP_CREATE_FOLDER_STRUCTURE)) {
-    var sheet = activeSheet();
-    doCreateFolderStructure(sheet);
-  }
-  } catch(e) {
-    ui.alert(ERROR_SETUP_CREATE_FOLDER_STRUCTURE);
-    logError('setupCreateFolderStructure', e);
-  }
-}
+    //doCreateFolderStructure(sheet);
+  } catch(e) { this.logError('Exposify.prototype.assignmentsCreatePaperTemplates', e); }
+} // end Exposify.prototype.setupCreateFolderStructure
+
 
 FolderStructure.prototype.getSemesterFolder = function() {
     var folderIterator = this.rootFolder.getFoldersByName(this.semesterTitle);
