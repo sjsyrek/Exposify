@@ -376,6 +376,15 @@ var DIALOG_SETUP_CREATE_FOLDER_STRUCTURE = {
   command: 'setupCreateFolderStructure',
   error_msg: 'There was a problem creating the folder structure. Please try again.'
 };
+var DIALOG_SETUP_SHARE_FOLDERS = {
+  alert: {
+    alertType: YES_NO,
+    msg: 'This command will share your course folder with all students in this section, and the folders in your graded papers folder with each individual student, respectively. Do you wish to proceed?',
+    title: 'Share folders with students'
+  },
+  command: 'setupShareFolders',
+  error_msg: 'There was a problem sharing the folders. Please try again.'
+};
 var DIALOG_ASSIGNMENTS_CREATE_TEMPLATES = {
   alert: {
     alertType: PROMPT,
@@ -713,6 +722,7 @@ function exposifySetupNewGradebook() { expos.executeMenuCommand.call(expos, DIAL
 function exposifySetupAddStudents() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_ADD_STUDENTS); }
 function exposifySetupCreateContacts() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_CREATE_CONTACTS); }
 function exposifySetupCreateFolderStructure() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_CREATE_FOLDER_STRUCTURE); }
+function exposifySetupShareFolders() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_SHARE_FOLDERS); }
 
 function exposifyCreatePaperTemplates() { expos.checkSheetStatus.call(expos, DIALOG_ASSIGNMENTS_CREATE_TEMPLATES); }
 function exposifyAssignmentsCalcWordCounts() { expos.checkSheetStatus.call(expos, {command: 'assignmentsCalcWordCounts'}); }
@@ -723,7 +733,6 @@ function exposifyFormatSetShadedRows() { expos.checkSheetStatus.call(expos, {com
 function exposifyHelp() { expos.executeMenuCommand.call(expos, {command: 'help'}); }
 
 // old functions to be replaced
-function exposifySetupSharedFolders() { return expos.setupSharedFolders(); }
 function exposifyAssignmentsCopy() { return expos.assignmentsCopy(); }
 function exposifyAssignmentsReturn() { return expos.assignmentsReturn(); }
 function exposifyAssignmentsCompareDrafts() { return expos.assignmentsCompareDrafts(); }
@@ -1422,6 +1431,7 @@ Exposify.prototype.executeMenuCommand = function(params) {
       var commands = {
         setupCreateContacts: function() { that.setupCreateContacts(that.sheet); },
         setupCreateFolderStructure: function() { that.setupCreateFolderStructure(that.sheet); },
+        setupShareFolders: function() { that.setupShareFolders(that.sheet); },
         assignmentsCreatePaperTemplates: function() { that.assignmentsCreatePaperTemplates(that.sheet, response); },
         assignmentsCalcWordCounts: function() { that.showHtmlSidebar(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS); },
         adminGenerateGradebook: function() { that.doGenerateGradebook(that.sheet); },
@@ -2156,7 +2166,7 @@ Exposify.prototype.setupCreateFolderStructure = function(sheet) {
     }
     var alert = this.alert({msg: msg, title: 'Create Folder Structure'});
     alert();
-  } catch(e) { this.logError('Exposify.prototype.assignmentsCreatePaperTemplates', e); }
+  } catch(e) { this.logError('Exposify.prototype.setupCreateFolderStructure', e); }
 } // end Exposify.prototype.setupCreateFolderStructure
 
 
@@ -2279,17 +2289,14 @@ Format.prototype.setShadedRows = function() {
 // FOLDERSTRUCTURE FUNCTIONS
 
 
-function setupShareFolders() {
+Exposify.prototype.setupShareFolders = function(sheet) {
   try {
-  if (alertYesNo(ALERT_SETUP_SHARE_FOLDERS)) {
-    var sheet = activeSheet();
-    doSetupShareFolders(sheet);
-  }
-  } catch(e) {
-    ui.alert(ERROR_SETUP_SHARE_FOLDERS);
-    logError('setupShareFolders', e);
-  }
-}
+    if (alertYesNo(ALERT_SETUP_SHARE_FOLDERS)) {
+      var sheet = activeSheet();
+      doSetupShareFolders(sheet);
+    }
+  } catch(e) { this.logError('Exposify.prototype.setupShareFolders', e); }
+} // end Exposify.prototype.setupShareFolders
 
 function doSetupShareFolders(sheet) { // unshare needed for students who drop, also need to use addEditors instead of addEditor and maybe create an array of functions to call with student names
   var sheet = activeSheet();
@@ -2482,3 +2489,4 @@ Exposify.prototype.testCallback = function(params) {
   var blob = UrlFetchApp.fetch(exportLink, { headers: { Authorization: 'Bearer ' + driveService.getAccessToken() } });
   var file = DriveApp.createFile(blob);
 }
+
