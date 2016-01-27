@@ -1,20 +1,8 @@
 /**
  * Exposify
+ * by Steven Syrek
  *
- * Copyright 2015 Steven J. Syrek
- * https://github.com/sjsyrek/Exposify
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * See LICENSE.txt for licensing information
  */
 
 /**
@@ -49,8 +37,7 @@
 
 //TODO: add all functions to Exposify.prototype
 //TODO: make sure every function has error checking blocks
-//TODO: rewrite functions for creating folder structure, folder sharing, collecting and returning assignments
-//TODO: finish paper comparison diff function
+//TODO: rewrite functions for folder sharing, collecting and returning assignments
 //TODO: write warning roster functions
 //TODO: make error messages more informative
 //TODO: revise comments
@@ -487,7 +474,6 @@ function onOpen() {
         .addItem('Copy assignments for grading...', 'exposifyAssignmentsCopy')
         .addItem('Return graded assignments...', 'exposifyAssignmentsReturn')
         .addItem('Calculate word counts...', 'exposifyAssignmentsCalcWordCounts')
-        .addItem('Compare rough and final drafts for selected student...', 'exposifyAssignmentsCompareDrafts'))
       .addSubMenu(ui.createMenu('Administration')
         .addItem('Generate warning roster for this section...', 'exposifyAdminGenerateWarningRoster')
         .addItem('Generate final gradebook for this section...', 'exposifyAdminGenerateGradebook'))
@@ -542,8 +528,8 @@ function GradeValidationSet() {
 
 
 /**
- * This is a simple student record, containing the student's name and netid, which can be computed into
- * a valid email address. It assumes all emails have the same domain, but this can be modified for edge
+ * A simple student record, containing the student's name and netid, which can be computed into
+ * a valid email address. Assumes all emails have the same domain, but this can be modified for edge
  * cases using the {@code setEmail()} method.
  * @constructor
  */
@@ -555,7 +541,7 @@ function Student(name, netid) {
 
 
 /**
- * This is a constructor for a course format.
+ * Constructor for a course format, which describes how to reformat the spreadsheet to create a new, blank gradebook.
  * @constructor
  */
 function Format(course) {
@@ -580,7 +566,7 @@ function Format(course) {
 
 
 /**
- * Creates a folder object with information about a folder stored in the user's Google Drive.
+ * Create a folder object with information about a folder stored in the user's Google Drive.
  * @constructor
  */
 function Folder(name, parent, path) {
@@ -589,41 +575,29 @@ function Folder(name, parent, path) {
   this.path = path;
 }; // end Folder
 
-
-var FolderStructure = function(semesterTitle, courseTitle) {
-  this.rootFolder = DriveApp.getRootFolder();
-  this.semesterTitle = semesterTitle;
-  this.courseTitle = courseTitle;
-  this.semesterFolder = this.getSemesterFolder();
-  this.courseFolder = this.getCourseFolder();
-  this.gradedFolder = this.getGradedFolder();
-  this.studentFolders = this.getStudentFolders();
-}; // end FolderStructure
-
-
 /**
- * This is the main Exposify constructor, the namespace for most of the methods and properties of the add-on.
+ * The main Exposify constructor, a namespace for most (but not all) of the methods and properties of the add-on. This is probably overkill, but it seemed like a good idea at the time.
  * @constructor
  */
 function Exposify() {
   // Private properties
   /**
-   * Stores a reference to the active Spreadsheet object, which shouldn't vary after the object is created.
+   * Store a reference to the active Spreadsheet object, which shouldn't vary after the object is created.
    * @private {Spreadsheet}
    */
   var spreadsheet_ = SpreadsheetApp.getActiveSpreadsheet();
   /**
-   * Stores a reference to the Ui object for this spreadsheet, which shouldn't vary after the object is created.
+   * Store a reference to the Ui object for this spreadsheet, which shouldn't vary after the object is created.
    * @private {Ui}
    */
   var ui_ = SpreadsheetApp.getUi();
   /**
-   * Stores a reference to the Menu object for this spreadsheet.
+   * Store a reference to the Menu object for this spreadsheet.
    * @private {Menu}
    */
   var menu_ = ui_.createMenu('Exposify');
   /**
-   * Stores references to common UI button sets, so I don't have to look them up at runtime.
+   * Store references to common UI button sets, so we don't have to look them up at runtime.
    * @private {ButtonSet}
    */
   var ok_ = ui_.ButtonSet.OK;
@@ -689,7 +663,7 @@ function Exposify() {
   };
   // Protected properties
   /**
-   * This is a simple interface for accessing the built-in UI alert controls.
+   * This is a simple interface wrapper for accessing the built-in UI alert controls.
    * @protected {Object}
    */
   this.alertUi = {
@@ -720,11 +694,16 @@ function exposifySetupNewGradebook() { expos.executeMenuCommand.call(expos, DIAL
 function exposifySetupAddStudents() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_ADD_STUDENTS); }
 function exposifySetupCreateContacts() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_CREATE_CONTACTS); }
 function exposifySetupCreateFolderStructure() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_CREATE_FOLDER_STRUCTURE); }
+
+// not yet implemented
 function exposifySetupShareFolders() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_SHARE_FOLDERS); }
 
 function exposifyCreatePaperTemplates() { expos.checkSheetStatus.call(expos, DIALOG_ASSIGNMENTS_CREATE_TEMPLATES); }
 function exposifyAssignmentsCalcWordCounts() { expos.checkSheetStatus.call(expos, {command: 'assignmentsCalcWordCounts'}); }
+
+// not yet implemented
 function exposifyAdminGenerateWarningRoster() { expos.checkSheetStatus.call(expos, DIALOG_ADMIN_WARNING_ROSTER); }
+
 function exposifyAdminGenerateGradebook() { expos.checkSheetStatus.call(expos, DIALOG_ADMIN_GRADEBOOK); }
 function exposifyFormatSwitchStudentNames() { expos.checkSheetStatus.call(expos, {command: 'formatSwitchStudentNames', error_msg: ERROR_FORMAT_SWITCH_STUDENT_NAMES}); }
 function exposifyFormatSetShadedRows() { expos.checkSheetStatus.call(expos, {command: 'formatSetShadedRows', error_msg: ERROR_FORMAT_SET_SHADED_ROWS}); }
@@ -753,13 +732,14 @@ function setupAddStudentsCallback(id) { expos.setupAddStudents(expos.sheet, id);
 function adminGenerateWarningRosterCallback(warnings) { expos.adminGenerateWarningRoster(warnings); }
 function adminGenerateWarningRosterCallbackGetStudents() { return expos.adminGenerateWarningRosterGetStudents(expos.sheet); }
 
-
+// work in progress
 Exposify.prototype.adminGenerateWarningRosterGetStudents = function(sheet) {
   try {
     var students = this.getStudents(sheet);
     return students;
   } catch(e) { this.logError('Exposify.prototype.adminGenerateWarningRosterGetStudents', e); }
 } // end Exposify.prototype.adminGenerateWarningRosterGetStudents
+
 
 // EXPOSIFY FUNCTIONS
 
@@ -768,7 +748,7 @@ Exposify.prototype.adminGenerateWarningRosterGetStudents = function(sheet) {
  * Check that an incoming request to make an alert has the correct parameters and raise an
  * exception if it does not. The parameter is an object with two fields, one containing the type of alert
  * and one containing the message to be displayed to the user. The available alert types are OK, OK_CANCEL,
- * and YES_NO. These are defined as constart values. This function returns another function, which can be
+ * and YES_NO. These are defined as constant values. This function returns another function, which can be
  * executed to display the dialog box, i.e. with {@code alert(confirmation)();}.
  * @param {Object} confirmation - The object holding the arguments to the function.
  * @param {string} confirmation.string - Alert type of the alert dialog, which determines the buttons to display.
@@ -845,7 +825,7 @@ Exposify.prototype.assignmentsCalcWordCounts = function(sheet, params) {
  * Retrieve the title of the course and number of students enrolled for use in the
  * word counts sidebar.
  * @param {Sheet} sheet - The Sheet object.
- * @return {string} title - The course title and enrollment figure.
+ * @return {string} title - The course title and number of students enrolled.
  */
 Exposify.prototype.assignmentsCalcWordCountsGetTitle = function(sheet) {
   try {
@@ -1148,7 +1128,7 @@ Exposify.prototype.doMakeAlert = function(confirmation) {
 /**
  * Make Google Apps Data Validation objects for applying grade validation to a new gradebook.
  * @param {number} courseNumber - The course number, used to pull data from the course template object literal.
- * @return {GradeValidationSet} gradeValidations - The grade validations to apply and the ranges to apply them to.
+ * @return {GradeValidationSet} gradeValidations - The grade validations to apply and the ranges to which to apply them.
  */
 Exposify.prototype.doMakeGradeValidations = function(courseNumber) {
   try {
