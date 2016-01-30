@@ -1,16 +1,20 @@
 # Exposify
 
-Exposify is a Google Sheets add-on that automates a variety of tasks related to the teaching of expository writing courses. Key features include automatic setup of grade books, attendance records, and folder hierarchies in Google Drive for organizing course sections and the return of graded assignments; batch word counts of student assignments; differential comparison of paper drafts (e.g. rough versus final); and various formatting and administrative tasks. This add-on is based on the specific courses I have taught, but I am planning to create a generic gradebook application in the future.
+Exposify is a Google Sheets add-on written in [Google Apps Script](https://developers.google.com/apps-script/), HTML, CSS, and jQuery that automates a variety of tasks related to the teaching of expository writing courses. Key features include automatic setup of grade books, attendance records, and folder hierarchies in Google Drive for organizing course sections and the return of graded assignments; batch word counts of student assignments; and various formatting and administrative tasks. This add-on is based on the specific courses I have taught, but I am planning to create a generic gradebook application in the future. Consider this experimental software.
 
-Some of the code is rough, as I more or less taught myself JavaScript while writing it. I have tried to go back and refactor as much as possible, as time has allowed, and I have also tried to follow best practices for both JS and GAS, where applicable.
+Some of the code is rough, as I more or less taught myself JavaScript while writing it. I have tried to go back and refactor as much as possible, as time has allowed, and I have also tried to follow best practices for both JavaScript and Google Apps Script, where applicable, but the coding style is not consistent and there is much I would change or do completely differently if I had to start all over again. Comments are in [JSDoc format](http://usejsdoc.org), and documentation can be automatically generated using the [jsdoc node package](https://www.npmjs.com/package/jsdoc).
 
-NOTE: Exposify will not work out-of-the-box if you just copy and paste the code into a Google Scripts Editor. You will need to perform the following steps in order to run the code yourself:
-- create a new project for Exposify in your Google Developers Console, and associate it with the script project (note your API key and Client Secret)
-- activate the Drive API in both Resources : Advanced Google services in the Script Editor and in the Developers Console for the project
-- activate the Google Picker API in the Developers Console
-- also in the Developers Console, set the Redirect URI for your client id to https://script.google.com/macros/d/{PROJECT KEY}/getDriveServiceCallback (you can find your Project Key in the Info tab under the menu option File : Project properties)
-- in the Script Editor, create a Script Property called DEVELOPER_KEY with your API key as the value and CLIENT_ID with your CLIENT_SECRET as the value
-- add the [OAuth2 library](https://github.com/googlesamples/apps-script-oauth2) to your project
+NOTE: Exposify will not work out-of-the-box if you just copy and paste the code into a Google Scripts Editor. You will need to do the following:
+1. Create a project in your Google Developers Console and, from the Script Editor.
+2. Enable the Drive API and the Google Picker API in the Developers Console.
+3. Enable the Drive API from the "Resources : Advanced Google services" menu in the Script editor.
+4. Create an API key and an OAuth client ID in the credentials section of your project in the Developers console. Make a note of them.
+5. Select the "File : Project properties" menu in the Script editor and create four script properties set to the following values:
+- DEVELOPER_KEY - API key from the console (API keys section).
+- CLIENT_ID - Client ID from the console (OAuth 2.0 section).
+- CLIENT_SECRET - Client secret from the console  (OAuth 2.0 section).
+- LOG_FILE_ID - The file ID of the spreadsheet you want to use for install and error logs
+(you can skip this one and set ERROR_TRACKING and INSTALL_TRACKING to false, but if you do want to track these things, make sure you create separate sheets called "Installs" and "Errors" in your spreadsheet).
 
 ## Features:
 
@@ -24,5 +28,4 @@ NOTE: Exposify will not work out-of-the-box if you just copy and paste the code 
 - Generate warning rosters and final gradebooks for submission to higher powers
 - Create easy-to-read, pre-formatted paper templates for students to write into directly, making file organization much easier and more consistent (goodbye MLA format)
 - Calculate word counts for a given assignment for all or individual students
-- Compare a rough and final draft and display the differences between them
 - Built-in grade validation, so your gradebook is always in the correct format

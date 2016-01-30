@@ -38,14 +38,11 @@
  */
 
 
-//TODO: add all functions to Exposify.prototype
-//TODO: make sure every function has error checking blocks
 //TODO: rewrite functions for folder sharing, collecting and returning assignments
 //TODO: write warning roster functions
 //TODO: make error messages and alert windows more informative
 //TODO: revise comments
 //TODO: create nicer finish window for Create Folder Structure
-//TODO: add tab indexes to UI controls for accessibility
 
 
 /**
@@ -510,7 +507,7 @@ function onOpen() {
         .addItem('Switch order of student names', 'exposifyFormatSwitchStudentNames')
         .addItem('Refresh shading of alternating rows', 'exposifyFormatSetShadedRows'))
       .addSeparator()
-      .addItem('Open menu help sidebar...', 'exposifyHelp')
+      .addItem('Exposify help...', 'exposifyHelp')
       .addToUi();
   } catch(e) {
     expos.logError('onOpen', e);
@@ -750,6 +747,10 @@ Exposify.prototype.adminGenerateWarningRosterGetStudents = function(sheet) {
   } catch(e) { this.logError('Exposify.prototype.adminGenerateWarningRosterGetStudents', e); }
 } // end Exposify.prototype.adminGenerateWarningRosterGetStudents
 
+
+Exposify.prototype.adminGenerateWarningRoster = function(warnings) {
+  Logger.log(warnings);
+}
 
 // EXPOSIFY FUNCTIONS
 

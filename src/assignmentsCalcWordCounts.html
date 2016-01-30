@@ -65,7 +65,7 @@ Modal dialog box for Exposify.gs called from assignmentsCalcWordCounts() -->
               var id = '#' + i;
               $(id).addClass('highlight'); // highlight in red papers that don't meet the specified minimum length
             }
-            i++;
+            i += 1;
           });
           $('<p id=\'total\'>Total: ' + counts.length + '</p>').appendTo('.inner');
         }

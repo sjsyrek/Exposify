@@ -1,66 +1,83 @@
 <!-- help.html
 Help page for Exposify.gs called from exposifyHelp() -->
 <div>
-<h1><span id="top">Exposify Help</span></h1>
-
-<a href="#setup">Setup</a>
-<a href="#assignments">Assignments</a>
-<a href="#administration">Administration</a>
-<a href="#format">Format</a>
-<a href="#technical">Technical Information</a>
-
-
-<h2><span id="setup">Setup</span></h2>
-
+<h1><span id='top'>Exposify Help</span></h1>
+<p>
+Choose a help topic from the list below:
+</p>
+<ul>
+<h3>
+<li><a href='#start'>Getting Started</a></li>
+<li><a href='#setup'>Setup</a></li>
+<li><a href='#assignments'>Assignments</a></li>
+<li><a href='#administration'>Administration</a></li>
+<li><a href='#format'>Format</a></li>
+<li><a href='#technical'>Technical Information</a></li>
+</h3>
+</ul>
+<hr>
+<h2><span id='start'>Getting Started</span></h2>
+<p>
+Thank you for using Exposify, an independently developed add-on for Google Sheets. Exposify is designed to automate many of the repetitive tasks of teaching Writing Program courses using Google Drive. It currently supports 101, 103, and 201. Start by setting up a new gradebook in a blank sheet (a spreadsheet document can contain many individual sheets, so make sure it's either a new one or one you don't mind overwriting). Enter your section's information, and a gradebook in the standard WP format will be created for you along with an optional attendance record. If you download from Sakai and then upload to Google Drive your course's roster (see below), you can automatically add your students to your gradebook and then create and share a set of folders for collecting, grading, and returning assignments. You will also be able to do automatic word counts of student papers and automatically generate warning rosters and final gradebooks for submission to the department. In addition, it is possible to create assignment documents for each of your students based on a standard template, which is useful if you have problems getting students to appropriately name their files. For this purpose, I have created a specially-designed template that is much nicer than the MLA format and includes a properly-formatted example works cited section. See the sections on individual commands for further information, but my hope is that most of the commands provided are more or less intuitive.
+</p>
+<p>
+All functionality is tested prior to release, but the code may still contain bugs or unaccounted-for situations ("edge cases") that can cause errors. You may also encounter errors or undesirable behavior if you manually edit the automatically-created elements of your gradebook, such as the headings. Since Sheets has a built-in revision history, however, none of your data is ever at risk—you can always undo any action. Occasionally, Exposify will have a problem communicating with Google Cloud Services, and certain operations will either fail or take longer than usual. If you do encounter a problem executing a command, try again a few times before reporting the bug. If the problem persists, definitely contact me. I am also happy to accept suggestions for alterations or improvements. For the most part, I designed this system to reflect the way I teach and my own setup preferences. You can certainly use as little or as much of Exposify's functionality as you like, though certain commands may not work if you modify things too much. I tried my best to model a reasonable approach to using Google Drive for teaching, but it is, after all, one person's opinion. I am not a professional programmer, and this software is provided "as-is" without any express or implied warranty. Hey, I did my best.
+<div>
+— Steven Syrek<br />
+<a href='mailto:steven.syrek@gmail.com'>steven.syrek@gmail.com</a>
+</div>
+</p>
+<a href='#top' class='h3'>top</a>
+<hr>
+<h2><span id='setup'>Setup</span></h2>
+<p>
 <h3><span>New gradebook</span></h3>
-
+This is the first command you should execute after installing Exposify. You can't do anything else until you have set up a gradebook. Make sure the active sheet is either blank, or you don't mind overwriting it. A spreadsheet document can have multiple sheets and multiple gradebooks. Click the '+' in the lower left corner of the window to create a new sheet. After your gradebook is generated, be careful when modifying the automatically generated content. If you change the course name or section number after you create a folder structure, for example, Exposify won't be able to find the folders. Gradebooks include data validation, so you can only enter appropriate values into each cell. This is meant to facilitate consistency and compliance with WP requirements, which aren't always easy to remember.
 <h3><span>Add students to gradebook</span></h3>
-
+You can add students manually, of course, but it's far more convenient to let Exposify do it for you! Go to the "Site Info" section of the Sakai page for your course and click the link above your roster that says <b>[Download participant data file compatible with Microsoft Excel]</b>. Upload this file to Google Drive. The file can be in the original csv format, or you can convert it to Google Sheets format, but do not otherwise modify it before running this command. Select the file and your students should automagically appear in your gradebook. Note that Exposify matches your gradebook's section number to the downloaded data file, so your section code must be correct. Once students have been added, you can modify the list however you want, though it's a good idea to use a consistent naming format.
 <h3><span>Create contact group for students</span></h3>
-
+If you use Google Contacts (or even just Gmail), you may find it handy to have a contact group for your section containing your students's names and email addresses. This way, when you compose a new email draft, autocomplete will fill in their email addresses for you, and you won't have to look them up. You can also email the entire contact group, if you so desire. Note that if you change the student list in the gradebook after running this command, the contact list won't automatically update. You can run the command again to do that, however.
 <h3><span>Create or update folder structure for this section</span></h3>
-
+In order to keep your teaching admin organized, you may find it useful to create a standard set of folders for each semester that you teach. This command will automatically create a root semester folder (meant only for you), a section folder (for you and all the students), and a graded papers folder that contains individual, private folders for each student. If you have multiple gradebooks in the spreadsheet, Exposify will place all the section folders from the same semester in the same root semester folder. The idea is that students compose their paper drafts and collaborate in the section folder, you copy them into the root folder for grading, and then you return the graded copies to them privately in their own, individual folders. If you modify the student list after creating the folder structure, run this command again to update it. You may want to wait until after add/drop to create it to avoid the extra work. Note that if you change the course name, section, or semester in the gradebook, other commands that use your folder structure may not function as intended.
 <h3><span>Share folders with students</span></h3>
-
-
-<a href="#top">top</a>
-
-<h2><span id="assignments">Assignments</span></h2>
-
+Once you've created your folder structure, this command will automatically share the section folder with all of them and their individual folders, under the Graded Papers folder, with each student, respectively. Once the folders are shared, you won't need to share individual documents. Note that the student names and IDs (used for their email addresses) in the gradebook must match the names of the folders for this command to work as intended. If you change the student list, you can run this command again to update the sharing settings, but make sure you update your folder structure, too (manually or automatically).
+</p>
+<a href='#top' class='h3'>top</a>
+<hr>
+<h2><span id='assignments'>Assignments</span></h2>
+<p>
 <h3><span>Create paper templates for students</span></h3>
-
+With this command, you can solve many problems at once. Instead of asking students to create their own files, you can create them yourself. Instead of hoping that they name and format them according to your requirements, you can do it automatically for them. This way, they can concentrate on writing and not worry about electronic typesetting (a skill they can learn elsewhere or on their own). In addition, creating these standardized templates makes it easier to automatically collect and return assignments as well as check their length. Simply enter a name for the assignment (such as "Assignment 1") and Exposify will automatically create one in the section folder for each student in your section, appropriately named. The template design that Exposify uses is also much nicer to look at than the hoary MLA format, which is ugly and physically tedious to read (see <a href='http://practicaltypography.com/research-papers.html' target='_blank'>this website</a> if you don't believe me). This is an opinionated stance, but I have yet to encounter students who don't prefer it. It's already hard enough to get them to write and read each other's work, and grading certainly takes up a huge amount of our own time as teachers. Why not use a more sensible layout that makes reading and writing faster and less of an obstacle? Note that this template does not include redundant details such as a heading (the student's name is in the filename and the date is part of the file metadata), but it does include a Works Cited section. The best reason to use this template is that it makes it virtually impossible for students to hand in final drafts late. The final draft is simply whatever state the paper is in on your deadline or when you decide to copy them over for grading. Everybody wins.
 <h3><span>Copy assignments for grading</span></h3>
-
+When you're ready to grade papers for a given assignment, and assuming you used a standard format for filenames, this command will automatically copy all the papers in the section folder for that assignment into the semester folder for commenting and grading. The copies are new files—Exposify does not move or modify the originals, which students should be aware of in case they continue to work on them after your deadline. If you want to review their revision histories, you will have to do that on the original files. The copies are not shared with anyone, either, so you can comment and grade privately.
 <h3><span>Return graded assignments</span></h3>
-
+When you have finished commenting on and grading papers for a given assignment, and assuming you used a standard format for filenames, this command will automatically move the graded papers into your students's private folders, respectively. Unlike the Copy command, this command does move the file, so your comments are preserved. It also prepends "(Graded)" to the filename in order to distinguish it in searches.
 <h3><span>Calculate word counts</span></h3>
-
-
-<a href="#top">top</a>
-
-<h2><span id="administration">Administration</span></h2>
-
+When paper drafts are due, you can automatically do word counts for a specific assignment, a specific student, or all assignments and all students. This command assumes you used a standard format for filenames. If you used Exposify's built-in paper template, this command will ignore the Works Cited section. If you have ever had to deal with students fiddling with their formats in order to artificially increase the apparent page length of their papers, I think you will find counting words far more sensible—it's how the British do it! In addition to being harder to hack, it's more substantive and appropriate to the electronic form than the arbitrary idea of a page. Papers that do not meet a supplied minimum length are highlighted for you in red. The default is 1700 words, which roughly corresponds to five printed pages in MLA format.
+</p>
+<a href='#top' class='h3'>top</a>
+<hr>
+<h2><span id='administration'>Administration</span></h2>
+<p>
 <h3><span>Generate warning roster for this section</span></h3>
-
+Automatically create a new spreadsheet file for submission as a warning roster, if you need one. Select which students should receive which warning, and Exposify takes care of the rest. You just have to share the file with the appropriate person. You can also download it or email it as an Excel or PDF document.
 <h3><span>Generate final gradebook for this section</span></h3>
-
-<a href="#top">top</a>
-
-
-<h2><span id="format">Format</span></h2>
-
+Automatically create a new spreadsheet file to submit to the Writing Program at the end of the semester as your gradebook, ignoring your attendance record. It's already in the WP standard format. You just have to download it as an Excel file and upload it to Sakai. If I could do that automatically, too, I would.
+</p>
+<a href='#top' class='h3'>top</a>
+<hr>
+<h2><span id='format'>Format</span></h2>
+<p>
 <h3><span>Switch order of student names</span></h3>
-
+Display your students's names in whichever order you prefer: first name first or last name first. This command simply switches them around and throws in free alphabetization to boot.
 <h3><span>Refresh shading of alternating rows</span></h3>
-
-
-<a href="#top">top</a>
-
-
-<h2><span id="technical">Technical Information</span></h2>
-
-Exposify is written in Google Apps Script, an implementation of ECMAScript 5 (commonly known as JavaScript).
-<a href="https://github.com/sjsyrek/Exposify">GitHub</a>
-
-<a href="#top">top</a>
+Sometimes, the alternating shading of rows (it's supposed to make your spreadsheet easier to read) gets messed up, usually if you delete entire rows instead of just clearing the values. It won't happen often, but if it does, run this command to re-prettify things. In case you're curious, the color code for the shade of gray that Exposify uses is #ededed. It's supposed to be a geeky pun.
+</p>
+<a href='#top' class='h3'>top</a>
+<hr>
+<h2><span id='technical'>Technical Information</span></h2>
+<p>
+Exposify is coded on the server side in <a href='https://developers.google.com/apps-script/' target='_blank'>Google Apps Script</a>, an implementation of <a href='http://www.ecmascript.org' target='_blank'>ECMAScript 5</a> (commonly known as <a href='https://developer.mozilla.org/en-US/docs/Web/JavaScript' target='_blank'>JavaScript</a>) using Google Apps APIs; and on the client side in regular JavaScript, <a href='http://jquery.com' target='_blank'>jQuery</a>, <a href='https://developer.mozilla.org/en-US/docs/Web/HTML' target='_blank'>HTML</a>, and <a href='https://developer.mozilla.org/en-US/docs/Web/CSS' target='_blank'>CSS</a>. It was developed using the Google Script Editor (remotely) and the <a href='https://www.npmjs.com/package/node-google-apps-script' target='_blank'>node-google-apps-script</a> package for <a href='https://nodejs.org/en/' target='_blank'>node.js</a> (locally). The author, <a href='mailto:steven.syrek@gmail.com'>Steven Syrek</a>, has been teaching in the Writing Program since 2003 and using Google Drive for WP courses since at least 2010. Exposify was developed over the course of several semesters in order to automate much of the repetitive labor of teaching electronically and represents a set of best practices as well as handy utilities. The original code for Exposify is hosted as an open source project on <a href='https://github.com/sjsyrek/Exposify' target='_blank'>GitHub</a>.
+</p>
+<a href='#top' class='h3'>top</a>
 </div>

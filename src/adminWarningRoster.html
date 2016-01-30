@@ -1,3 +1,41 @@
-<div>
+<!-- adminWarningRoster.html
+Modal dialog box for Exposify.gs called from exposifyAdminGenerateWarningRoster() -->
 
+<div>
+  <form id='warning_roster'>
+    <div id='heading' class='title'>Which students should receive warnings?</div>    
+    <div id='inner'></div>
+    <div id ='buttons'>
+      <input class='button' type='submit' name='submit' id='submit' value='OK'>
+      <input class='button' type='button' name='cancel' id='cancel' value='Cancel' onclick='google.script.host.close()'>
+    </div>
+  </form>      
 </div>
+<script src='https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>
+<script>
+  $( document ).ready(function() {  
+    $('#heading').hide();
+    $('#buttons').hide();
+    google.script.run.withSuccessHandler(displayStudents).adminGenerateWarningRosterCallbackGetStudents();
+    $('#warning_roster').submit(function() {
+      var warnings = $('select[name="warning"]').val();
+      google.script.run.adminGenerateWarningRosterCallback(warnings); // return information to server script
+      google.script.host.close(); // close dialog box
+    }); // end submit()
+  }); // end ready()
+  function displayStudents(students) {
+    if (students.length === 0) {
+      $('#heading').replaceWith('There are no students in this section!');
+    } else {
+      var menu = '<select name="warning"><option value="no">No warning</option><option value="w1">W1</option><option value="w2">W2</option><option value="w3">W3</option></select>';   
+      students.forEach( function(student) {
+        var name = student.name;
+        var netid = student.netid;
+        var item = '<p>' + menu + ' ' + name + ' (' + netid + ') </p>';
+        $(item).appendTo('#inner');
+      });
+    }    
+    $('#heading').show();
+    $('#buttons').show();
+  } // end displayStudents()
+</script>
