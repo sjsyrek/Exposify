@@ -18,20 +18,23 @@
 
 /**
  * NOTE: Exposify will not work out-of-the-box if you just copy and paste the code
- * into a Google Scripts Editor. You will need to activate the Drive API in both
- * Resources : Advanced Google services and the Developers Console for the project.
- * If you have not already set up a project in the Developers Console, you will
- * need to create one, associate it with the script project, and, in the Script
- * Editor, create a Script Property called DEVELOPER_KEY with your API key as the
- * value. In addition, you will need to enable the Google Picker API in the
- * Developers Console in order for the file picking user interface to function. Finally,
- * this script requires the addition of the OAuth2 library. For details, see
- * https://github.com/googlesamples/apps-script-oauth2. You will need to set a Script
- * Property with your CLIENT_ID and another one with your CLIENT_SECRET. The client id
- * and secret are available from the Google Developers Console. You also have to set
- * the Redirect URI for your client id to
- * https://script.google.com/macros/d/{PROJECT KEY}/getDriveServiceCallback. You can find
- * your Project Key in File : Project properties in the Info tab. Good luck!
+ * into a Google Scripts Editor. You will need to do the following:
+ * 1. Create a project in your Google Developers Console and, from the Script Editor,
+ * associate your script project with the project number from the console.
+ * 2. Enable the Drive API and the Google Picker API in the Developers Console.
+ * 3. Enable the Drive API from the "Resources : Advanced Google services" menu in the
+ * Script editor.
+ * 4. Create an API key and an OAuth client ID in the credentials section of your
+ * project in the Developers console. Make a note of them.
+ * 5. Select the "File : Project properties" menu in the Script editor and create four
+ * script properties set to the following values:
+ * DEVELOPER_KEY - API key from the console (API keys section).
+ * CLIENT_ID - Client ID from the console (OAuth 2.0 section).
+ * CLIENT_SECRET - Client secret from the console  (OAuth 2.0 section).
+ * LOG_FILE_ID - The file ID of the spreadsheet you want to use for install and error logs
+ * (you can skip this one and set ERROR_TRACKING and INSTALL_TRACKING to false, but if you
+ * do want to track these things, make sure you create separate sheets called "Installs"
+ * and "Errors" in your spreadsheet).
  */
 
 
@@ -39,8 +42,10 @@
 //TODO: make sure every function has error checking blocks
 //TODO: rewrite functions for folder sharing, collecting and returning assignments
 //TODO: write warning roster functions
-//TODO: make error messages more informative
+//TODO: make error messages and alert windows more informative
 //TODO: revise comments
+//TODO: create nicer finish window for Create Folder Structure
+//TODO: add tab indexes to UI controls for accessibility
 
 
 /**
@@ -116,7 +121,7 @@ var ERROR_FORMAT_SET_SHADED_ROWS = 'There was a problem formatting the sheet. Pl
 var ERROR_FORMAT_SWITCH_STUDENT_NAMES = 'There was a problem formatting the sheet. Please try again.';
 var ERROR_SETUP_NEW_GRADEBOOK_FORMAT = 'There was a problem formatting the page. Try again.';
 var ERROR_SETUP_ADD_STUDENTS = 'There was a problem reading the file.';
-var ERROR_SETUP_ADD_STUDENTS_EMPTY = 'I could not find any students in the file \"$\". Make sure you didn\'t modify it after downloading it from Sakai.';
+var ERROR_SETUP_ADD_STUDENTS_EMPTY = 'I could not find any students in the file \"$\" for this section. Make sure you didn\'t modify it after downloading it from Sakai and that it\'s the correct section';
 var ERROR_SETUP_ADD_STUDENTS_INVALID = '\'$\' is not a valid CSV or Google Sheets file. Please try again.';
 var ERROR_SETUP_SHARE_FOLDERS = 'There was a problem sharing the folders. Please try again.';
 var ERROR_ASSIGNMENTS_CALC_WORD_COUNTS = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command.';
@@ -407,7 +412,7 @@ var SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS = {
 };
 var SIDEBAR_HELP = {
   title: 'Exposify Help',
-  html: 'Exposify_help.html'
+  html: 'help.html'
 };
 
 /**
@@ -444,6 +449,7 @@ var TEMPLATE_WORKS_CITED = {
 function onInstall(e) {
   try {
     onOpen(e); // setup the custom menu, which is really the only important thing this function does
+    expos.showHtmlSidebar(SIDEBAR_HELP);
     expos.alert({msg: ALERT_INSTALL_THANKS})();
     expos.logInstall(); // tell me when someone has installed the add-on, for my records
   } catch(e) {
@@ -473,7 +479,7 @@ function onOpen() {
         .addItem('Create paper templates for students...', 'exposifyCreatePaperTemplates')
         .addItem('Copy assignments for grading...', 'exposifyAssignmentsCopy')
         .addItem('Return graded assignments...', 'exposifyAssignmentsReturn')
-        .addItem('Calculate word counts...', 'exposifyAssignmentsCalcWordCounts')
+        .addItem('Calculate word counts...', 'exposifyAssignmentsCalcWordCounts'))
       .addSubMenu(ui.createMenu('Administration')
         .addItem('Generate warning roster for this section...', 'exposifyAdminGenerateWarningRoster')
         .addItem('Generate final gradebook for this section...', 'exposifyAdminGenerateGradebook'))
@@ -595,7 +601,7 @@ function Exposify() {
    * Store a reference to the Menu object for this spreadsheet.
    * @private {Menu}
    */
-  var menu_ = ui_.createMenu('Exposify');
+  var menu_ = ui_.createAddonMenu();
   /**
    * Store references to common UI button sets, so we don't have to look them up at runtime.
    * @private {ButtonSet}
@@ -2313,158 +2319,146 @@ function doSetupShareFolders(sheet) { // unshare needed for students who drop, a
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-function diffPapers() {
-  var id = '1YTThNXwde96tnRDTBUtEQZ18rOWzTEpDAc-Qecpd36w';
-  var url = 'https://www.googleapis.com/drive/v2/files/' + id + '/revisions';
-  var options = {
-
-    'muteHttpExceptions' : true
-  };
-  var result = UrlFetchApp.fetch(url, options);
-  Logger.log(result);
-}
-
-
-// Fetch revision history of document
-Exposify.prototype.getRevisionHistory = function(id) {
-  var driveService = this.getDriveService();
-  var callback = 'getRevisionHistoryCallback';
-  var url = 'https://www.googleapis.com/drive/v2/files/' + id + '/revisions';
-  var response = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + driveService.getAccessToken() } });
-  var json = JSON.parse(response);
-  Logger.log(json);
-
-  //var jsonFeed = Utilities.jsonParse(urlFetch.getContentText()).feed.entry;
-  //return the revison history feed
-  //return jsonFeed
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-function getDriveServiceCallback(request) { return expos.authCallback(request); }
-function assignmentsCompareDraftsCallback(assignment) { return expos.assignmentsCompareDrafts(assignment); }
-
-Exposify.prototype.assignmentsCompareDrafts = function(assignment) {
-  // get revisions from Drive API, then return list of revisions if there are any
-}
-
-
-function clearService() {
-  OAuth2.createService('drive')
-  .setPropertyStore(PropertiesService.getUserProperties())
-  .reset();
-}
-
-Exposify.prototype.authCallback = function(request) {
-  var driveService = this.getDriveService();
-  var isAuthorized = driveService.handleCallback(request);
-  if (isAuthorized) {
-    var params = CacheService.getUserCache().getAll(['id', 'callback']); // returns {}, not null, if these keys don't exist
-    if (params !== {}) {
-      CacheService.getUserCache().removeAll(['id', 'callback']);
-      this.fetchFileFromDrive(params);
-    }
-    return HtmlService.createHtmlOutput('Success! You can close this tab.');
-  } else {
-    return HtmlService.createHtmlOutput('Denied. You can close this tab');
-  }
-}
-
-Exposify.prototype.getDriveService = function() {
-  return OAuth2.createService('drive')
-      .setAuthorizationBaseUrl('https://accounts.google.com/o/oauth2/auth')
-      .setTokenUrl('https://accounts.google.com/o/oauth2/token')
-      .setClientId(this.getClientId())
-      .setClientSecret(this.getClientSecret())
-      .setCallbackFunction('getDriveServiceCallback')
-      .setPropertyStore(PropertiesService.getUserProperties())
-      .setScope('https://www.googleapis.com/auth/drive')
-      .setParam('login_hint', Session.getActiveUser().getEmail())
-      .setParam('access_type', 'offline')
-      // Forces the approval prompt every time. This is useful for testing,
-      // but not desirable in a production application.
-      .setParam('approval_prompt', 'force');
-}
-
-
-var DIALOG_DRIVE_AUTHORIZATION = {
-  dialog: {
-    title: 'Drive Authorization Required',
-    html:
-      '<div>' +
-      'To perform this function, Exposify needs you to authorize access to your Google Drive file. I\'m really sorry, but I promise it\'s completely harmless! Is this OK?' +
-      '<div>' +
-      '<a href="<?= authorizationUrl ?>" target="_blank"><input class="button" type="button" value="Yes" onclick="google.script.host.close()"></a>' +
-      '<input class="button" type="button" value="No" onclick="google.script.host.close()">' +
-      '</div></div>',
-    width: 500,
-    height: 200
-  },
-  error_msg: 'I could not access your Drive for some reason. Please try again.'
-};
-
-Exposify.prototype.getAuthorizationUrl = function() {
-  var driveService = this.getDriveService();
-  if (!driveService.hasAccess()) {
-    var authorizationUrl = driveService.getAuthorizationUrl();
-    var stylesheet = this.getHtmlOutputFromFile(STYLESHEET).getContent();
-    var dialog = DIALOG_DRIVE_AUTHORIZATION.dialog;
-    var template = HtmlService.createTemplate(stylesheet + dialog.html);
-    template.authorizationUrl = authorizationUrl;
-    var page = template.evaluate()
-      .setWidth(dialog.width)
-      .setHeight(dialog.height);
-    this.showModalDialog(page, dialog.title);
-  } else {
-    this.alert({msg: DIALOG_DRIVE_AUTHORIZATION.error_msg, title: 'Drive Authorization'})();
-  }
-}
-
-// params = {id, callback}
-Exposify.prototype.fetchFileFromDrive = function(params) {
-  var driveService = this.getDriveService();
-  if (!driveService.hasAccess()) {
-    CacheService.getUserCache().putAll(params);
-    this.getAuthorizationUrl(params);
-    return;
-  }
-  this[params.callback](params);
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-/**
- * Test a function passed through the Exposify prototype.
- */
-Exposify.prototype.prototypeTest = function(params) {
-  return {sheet: this.sheet, spreadsheet: this.spreadsheet, ui: this.ui};
-} // end Exposify.prototype.prototypeTest
-
-/**
- * Test a function defined on the Exposify prototype and log the return value.
- */
-function exposifyTest() {
-  var testFunction = 'setupCreateFolderStructure';
-  var params = expos.getSheet(); // Google Doc to test revision history
-  var functions = Exposify.prototype;
-  var returnValue = functions[testFunction].call(expos, params);
-  Logger.log(returnValue);
-} // end exposifyTest
-
-Exposify.prototype.testCallback = function(params) {
-  var driveService = this.getDriveService();
-  var range = this.sheet.getRange('A1:W25').getValues();
-  var newDoc = SpreadsheetApp.create('New Test Doc Yay', 25, 30);
-  var newRange = newDoc.getRange('A1:W25').setValues(range);
-  var id = newDoc.getId();
-  var url = 'https://www.googleapis.com/drive/v2/files/' + id;
-  var response = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + driveService.getAccessToken() } });
-  var json = JSON.parse(response);
-  Utilities.sleep(30000);
-  var exportLink = json.exportLinks['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
-  var blob = UrlFetchApp.fetch(exportLink, { headers: { Authorization: 'Bearer ' + driveService.getAccessToken() } });
-  var file = DriveApp.createFile(blob);
-}
-
+//
+// // I don't think I need any of this
+//
+// // Fetch revision history of document
+// Exposify.prototype.getRevisionHistory = function(id) {
+//   var driveService = this.getDriveService();
+//   var callback = 'getRevisionHistoryCallback';
+//   var url = 'https://www.googleapis.com/drive/v2/files/' + id + '/revisions';
+//   var response = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + driveService.getAccessToken() } });
+//   var json = JSON.parse(response);
+//   Logger.log(json);
+//
+//   //var jsonFeed = Utilities.jsonParse(urlFetch.getContentText()).feed.entry;
+//   //return the revison history feed
+//   //return jsonFeed
+// }
+//
+//
+// function getDriveServiceCallback(request) { return expos.authCallback(request); }
+// function assignmentsCompareDraftsCallback(assignment) { return expos.assignmentsCompareDrafts(assignment); }
+//
+// Exposify.prototype.assignmentsCompareDrafts = function(assignment) {
+//   // get revisions from Drive API, then return list of revisions if there are any
+// }
+//
+//
+// function clearService() {
+//   OAuth2.createService('drive')
+//   .setPropertyStore(PropertiesService.getUserProperties())
+//   .reset();
+// }
+//
+// Exposify.prototype.authCallback = function(request) {
+//   var driveService = this.getDriveService();
+//   var isAuthorized = driveService.handleCallback(request);
+//   if (isAuthorized) {
+//     var params = CacheService.getUserCache().getAll(['id', 'callback']); // returns {}, not null, if these keys don't exist
+//     if (params !== {}) {
+//       CacheService.getUserCache().removeAll(['id', 'callback']);
+//       this.fetchFileFromDrive(params);
+//     }
+//     return HtmlService.createHtmlOutput('Success! You can close this tab.');
+//   } else {
+//     return HtmlService.createHtmlOutput('Denied. You can close this tab');
+//   }
+// }
+//
+// Exposify.prototype.getDriveService = function() {
+//   return OAuth2.createService('drive')
+//       .setAuthorizationBaseUrl('https://accounts.google.com/o/oauth2/auth')
+//       .setTokenUrl('https://accounts.google.com/o/oauth2/token')
+//       .setClientId(this.getClientId())
+//       .setClientSecret(this.getClientSecret())
+//       .setCallbackFunction('getDriveServiceCallback')
+//       .setPropertyStore(PropertiesService.getUserProperties())
+//       .setScope('https://www.googleapis.com/auth/drive')
+//       .setParam('login_hint', Session.getActiveUser().getEmail())
+//       .setParam('access_type', 'offline')
+//       // Forces the approval prompt every time. This is useful for testing,
+//       // but not desirable in a production application.
+//       .setParam('approval_prompt', 'force');
+// }
+//
+//
+// var DIALOG_DRIVE_AUTHORIZATION = {
+//   dialog: {
+//     title: 'Drive Authorization Required',
+//     html:
+//       '<div>' +
+//       'To perform this function, Exposify needs you to authorize access to your Google Drive file. I\'m really sorry, but I promise it\'s completely harmless! Is this OK?' +
+//       '<div>' +
+//       '<a href="<?= authorizationUrl ?>" target="_blank"><input class="button" type="button" value="Yes" onclick="google.script.host.close()"></a>' +
+//       '<input class="button" type="button" value="No" onclick="google.script.host.close()">' +
+//       '</div></div>',
+//     width: 500,
+//     height: 200
+//   },
+//   error_msg: 'I could not access your Drive for some reason. Please try again.'
+// };
+//
+// Exposify.prototype.getAuthorizationUrl = function() {
+//   var driveService = this.getDriveService();
+//   if (!driveService.hasAccess()) {
+//     var authorizationUrl = driveService.getAuthorizationUrl();
+//     var stylesheet = this.getHtmlOutputFromFile(STYLESHEET).getContent();
+//     var dialog = DIALOG_DRIVE_AUTHORIZATION.dialog;
+//     var template = HtmlService.createTemplate(stylesheet + dialog.html);
+//     template.authorizationUrl = authorizationUrl;
+//     var page = template.evaluate()
+//       .setWidth(dialog.width)
+//       .setHeight(dialog.height);
+//     this.showModalDialog(page, dialog.title);
+//   } else {
+//     this.alert({msg: DIALOG_DRIVE_AUTHORIZATION.error_msg, title: 'Drive Authorization'})();
+//   }
+// }
+//
+// // params = {id, callback}
+// Exposify.prototype.fetchFileFromDrive = function(params) {
+//   var driveService = this.getDriveService();
+//   if (!driveService.hasAccess()) {
+//     CacheService.getUserCache().putAll(params);
+//     this.getAuthorizationUrl(params);
+//     return;
+//   }
+//   this[params.callback](params);
+// }
+//
+// ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+// /**
+//  * Test a function passed through the Exposify prototype.
+//  */
+// Exposify.prototype.prototypeTest = function(params) {
+//   return {sheet: this.sheet, spreadsheet: this.spreadsheet, ui: this.ui};
+// } // end Exposify.prototype.prototypeTest
+//
+// /**
+//  * Test a function defined on the Exposify prototype and log the return value.
+//  */
+// function exposifyTest() {
+//   var testFunction = 'setupCreateFolderStructure';
+//   var params = expos.getSheet(); // Google Doc to test revision history
+//   var functions = Exposify.prototype;
+//   var returnValue = functions[testFunction].call(expos, params);
+//   Logger.log(returnValue);
+// } // end exposifyTest
+//
+// Exposify.prototype.testCallback = function(params) {
+//   var driveService = this.getDriveService();
+//   var range = this.sheet.getRange('A1:W25').getValues();
+//   var newDoc = SpreadsheetApp.create('New Test Doc Yay', 25, 30);
+//   var newRange = newDoc.getRange('A1:W25').setValues(range);
+//   var id = newDoc.getId();
+//   var url = 'https://www.googleapis.com/drive/v2/files/' + id;
+//   var response = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + driveService.getAccessToken() } });
+//   var json = JSON.parse(response);
+//   Utilities.sleep(30000);
+//   var exportLink = json.exportLinks['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+//   var blob = UrlFetchApp.fetch(exportLink, { headers: { Authorization: 'Bearer ' + driveService.getAccessToken() } });
+//   var file = DriveApp.createFile(blob);
+// }
+//
