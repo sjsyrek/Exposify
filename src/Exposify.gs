@@ -327,7 +327,7 @@ var DIALOG_SETUP_NEW_GRADEBOOK = {
     title: 'Setup New Gradebook'
   },
   dialog: {
-    title: 'Setup New Section',
+    title: 'Setup New Gradebook',
     html: 'setupNewGradebookDialog.html',
     width: 525,
     height: 450
@@ -384,7 +384,30 @@ var DIALOG_ASSIGNMENTS_CREATE_TEMPLATES = {
   command: 'assignmentsCreatePaperTemplates',
   error_msg: 'Unable to create new files. Please try again.'
 };
+var DIALOG_ASSIGNMENTS_COPY = {
+  alert: {
+    alertType: PROMPT,
+    msg: 'This will copy a set of assignments into the root course folder (not shared with students) for private commenting and grading. What is the name of the assignment?',
+    title: 'Copy Assignments for Grading'
+  },
+  command: 'assignmentsCopy',
+  error_msg: 'Unable to copy assignments. Please try again.'
+};
+var DIALOG_ASSIGNMENTS_RETURN = {
+  alert: {
+    alertType: PROMPT,
+    msg: 'This will return a set of graded assignments to students in their private folders. What is the name of the assignment?',
+    title: 'Return Graded Assignments'
+  },
+  command: 'assignmentsReturn',
+  error_msg: 'Unable to return assignments. Please try again.'
+};
 var DIALOG_ADMIN_WARNING_ROSTER = {
+  alert: {
+    alertType: YES_NO,
+    msg: 'This will generate a warning roster for this section. Is that what you want to do?',
+    title: 'Generate Warning Roster'
+  },
   dialog: {
     title: 'Generate Warning Roster',
     html: 'adminWarningRoster.html',
@@ -393,7 +416,7 @@ var DIALOG_ADMIN_WARNING_ROSTER = {
   },
   error_msg: 'There was a problem. Please try again.'
 };
-DIALOG_ADMIN_GRADEBOOK = {
+var DIALOG_ADMIN_GRADEBOOK = {
   alert: {
     alertType: YES_NO,
     msg: 'This will create a separate gradebook file from the relevant data on this sheet as another Google Sheets file that you can download in Excel or another format for submission to the appropriate authorities. The file will be placed in your root Drive folder. Is that what you want to do?',
@@ -470,7 +493,7 @@ function onOpen() {
   try {
     menu
       .addSubMenu(ui.createMenu('Setup')
-        .addItem('New gradebook...', 'exposifySetupNewGradebook')
+        .addItem('Setup new gradebook...', 'exposifySetupNewGradebook')
         .addItem('Add students to gradebook...', 'exposifySetupAddStudents')
         .addItem('Create contact group for students...', 'exposifySetupCreateContacts')
         .addItem('Create or update folder structure for this section...', 'exposifySetupCreateFolderStructure')
@@ -487,7 +510,7 @@ function onOpen() {
         .addItem('Switch order of student names', 'exposifyFormatSwitchStudentNames')
         .addItem('Refresh shading of alternating rows', 'exposifyFormatSetShadedRows'))
       .addSeparator()
-      .addItem('Help...', 'exposifyHelp')
+      .addItem('Open menu help sidebar...', 'exposifyHelp')
       .addToUi();
   } catch(e) {
     expos.logError('onOpen', e);
@@ -690,24 +713,16 @@ function exposifySetupNewGradebook() { expos.executeMenuCommand.call(expos, DIAL
 function exposifySetupAddStudents() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_ADD_STUDENTS); }
 function exposifySetupCreateContacts() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_CREATE_CONTACTS); }
 function exposifySetupCreateFolderStructure() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_CREATE_FOLDER_STRUCTURE); }
-
-// not yet implemented
 function exposifySetupShareFolders() { expos.checkSheetStatus.call(expos, DIALOG_SETUP_SHARE_FOLDERS); }
-
 function exposifyCreatePaperTemplates() { expos.checkSheetStatus.call(expos, DIALOG_ASSIGNMENTS_CREATE_TEMPLATES); }
 function exposifyAssignmentsCalcWordCounts() { expos.checkSheetStatus.call(expos, {command: 'assignmentsCalcWordCounts'}); }
-
-// not yet implemented
+function exposifyAssignmentsCopy() { expos.checkSheetStatus.call(expos, DIALOG_ASSIGNMENTS_COPY); }
+function exposifyAssignmentsReturn() { expos.checkSheetStatus.call(expos, DIALOG_ASSIGNMENTS_RETURN); }
 function exposifyAdminGenerateWarningRoster() { expos.checkSheetStatus.call(expos, DIALOG_ADMIN_WARNING_ROSTER); }
-
 function exposifyAdminGenerateGradebook() { expos.checkSheetStatus.call(expos, DIALOG_ADMIN_GRADEBOOK); }
 function exposifyFormatSwitchStudentNames() { expos.checkSheetStatus.call(expos, {command: 'formatSwitchStudentNames', error_msg: ERROR_FORMAT_SWITCH_STUDENT_NAMES}); }
 function exposifyFormatSetShadedRows() { expos.checkSheetStatus.call(expos, {command: 'formatSetShadedRows', error_msg: ERROR_FORMAT_SET_SHADED_ROWS}); }
 function exposifyHelp() { expos.executeMenuCommand.call(expos, {command: 'help'}); }
-
-// old functions to be replaced
-function exposifyAssignmentsCopy() { return expos.assignmentsCopy(); }
-function exposifyAssignmentsReturn() { return expos.assignmentsReturn(); }
 
 
 // CALLBACKS
@@ -835,9 +850,21 @@ Exposify.prototype.assignmentsCalcWordCountsGetTitle = function(sheet) {
 
 
 /**
+ * Copy student assignments from the course folder to the semester folder for private grading.
+ * @param  {Sheet} sheet - The sheet object.
+ * @param  {string} assignment - The name of the assignment to filter for.
+ */
+Exposify.prototype.assignmentsCopy = function(sheet, assignment) {
+  try {
+
+  } catch(e) { this.logError('Exposify.prototype.assignmentsCopy', e); }
+} // end Exposify.prototype.assignmentsCopy
+
+
+/**
+ * Create Google Docs files for students to use as templates for their assignments.
  * @param {Sheet} sheet - The Sheet object.
  * @param {string} assignment - The name of the assignment to use in the template filename.
- * Create Google Docs files for students to use as templates for their assignments.
  */
 Exposify.prototype.assignmentsCreatePaperTemplates = function(sheet, assignment) {
   try {
@@ -861,6 +888,18 @@ Exposify.prototype.assignmentsCreatePaperTemplates = function(sheet, assignment)
     spreadsheet.toast(ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS.replace('$', section), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
   } catch(e) { this.logError('Exposify.prototype.assignmentsCreatePaperTemplates', e); }
 } // end Exposify.prototype.assignmentsCreatePaperTemplates
+
+
+/**
+ * Return student assignments from the semester folder to their individual, private folders for review.
+ * @param  {Sheet} sheet - The sheet object.
+ * @param  {string} assignment - The name of the assignment to filter for.
+ */
+Exposify.prototype.assignmentsReturn = function(sheet, assignment) {
+  try {
+
+  } catch(e) { this.logError('Exposify.prototype.assignmentsReturn', e); }
+} // end Exposify.prototype.assignmentsReturn
 
 
 /**
@@ -1409,6 +1448,8 @@ Exposify.prototype.executeMenuCommand = function(params) {
         setupShareFolders: function() { that.setupShareFolders(that.sheet); },
         assignmentsCreatePaperTemplates: function() { that.assignmentsCreatePaperTemplates(that.sheet, response); },
         assignmentsCalcWordCounts: function() { that.showHtmlSidebar(SIDEBAR_ASSIGNMENTS_CALC_WORD_COUNTS); },
+        assignmentsCopy: function() { that.assignmentsCopy(that.sheet, response); },
+        assignmentsReturn: function() { that.assignmentsReturn(that.sheet, response); },
         adminGenerateGradebook: function() { that.doGenerateGradebook(that.sheet); },
         formatSwitchStudentNames: function() { that.doSwitchStudentNames(that.sheet); },
         formatSetShadedRows: function() { that.doSetShadedRows(that.sheet); },
@@ -2201,7 +2242,7 @@ Exposify.prototype.setupNewGradebook = function(sheet, courseInfo) {
 /**
  * Share the course folder with all students in the section, and share their graded papers folders with each
  * of them, respectively.
- * @param  {Sheet} - The Google Apps Sheet object with the gradebook containing the students with whom to share folders.
+ * @param  {Sheet} sheet - The Google Apps Sheet object with the gradebook containing the students with whom to share folders.
  */
 Exposify.prototype.setupShareFolders = function(sheet) {
   try {
