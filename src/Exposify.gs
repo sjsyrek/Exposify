@@ -572,16 +572,6 @@ function Format(course) {
 
 
 /**
- * Create a folder object with information about a folder stored in the user's Google Drive.
- * @constructor
- */
-function Folder(name, parent, path) {
-  this.name = name;
-  this.parent = parent;
-  this.path = path;
-}; // end Folder
-
-/**
  * The main Exposify constructor, a namespace for most (but not all) of the methods and properties of the add-on. This is probably overkill, but it seemed like a good idea at the time.
  * @constructor
  */
@@ -718,7 +708,6 @@ function exposifyHelp() { expos.executeMenuCommand.call(expos, {command: 'help'}
 // old functions to be replaced
 function exposifyAssignmentsCopy() { return expos.assignmentsCopy(); }
 function exposifyAssignmentsReturn() { return expos.assignmentsReturn(); }
-function exposifyAssignmentsCompareDrafts() { return expos.assignmentsCompareDrafts(); }
 
 
 // CALLBACKS
@@ -783,16 +772,18 @@ Exposify.prototype.alert = function(confirmation) {
  * @return {boolean}
  */
 Exposify.prototype.arrayContains = function(arr, item) {
-  if (arr.length < 1) {
-    return false;
-  }
-  var i = arr.length;
-  while (i--) {
-    if (arr[i] === item) {
-      return true;
+  try {
+    if (arr.length < 1) {
+      return false;
     }
-  }
-  return false;
+    var i = arr.length;
+    while (i--) {
+      if (arr[i] === item) {
+        return true;
+      }
+    }
+    return false;
+  } catch(e) {this.logError('Exposify.prototype.arrayContains', e); }
 } // end Exposify.prototype.arrayContains
 
 
@@ -1442,8 +1433,10 @@ Exposify.prototype.executeMenuCommand = function(params) {
  * @return {boolean}
  */
 Exposify.prototype.getAlternateDesignationYearStatus = function(year) { // change in designation days are different if September 1 is a Tuesday (see http://senate.rutgers.edu/RLBAckS1003AAcademicCalendarPart2.pdf)
-  var firstDayOfSeptember = (new Date(year, 8, 1)).getDay();
-  return firstDayOfSeptember === 2 ? true : false; // return true if the first day of September of the year being checked is a Tuesday and false otherwise
+  try {
+    var firstDayOfSeptember = (new Date(year, 8, 1)).getDay();
+    return firstDayOfSeptember === 2 ? true : false; // return true if the first day of September of the year being checked is a Tuesday and false otherwise
+  } catch(e) { this.logError('Exposify.prototype.getAlternateDesignationYearStatus', e); }
 } // end Exposify.prototype.getAlternateDesignationYearStatus
 
 
@@ -1600,8 +1593,10 @@ Exposify.prototype.getDeveloperKey = function() {
  * @return {number}
  */
 Exposify.prototype.getFirstDayOfSpringBreak = function(year) {
-  var firstDayOfMarch = new Date(year, 3, 1).getDay();
-  return firstDayOfMarch + (6 - firstDayOfMarch) + 7; // Spring Break starts the second Saturday of March, so find out the first day of March, add days to get to Saturday, and add 7 to that
+  try {
+    var firstDayOfMarch = new Date(year, 3, 1).getDay();
+    return firstDayOfMarch + (6 - firstDayOfMarch) + 7; // Spring Break starts the second Saturday of March, so find out the first day of March, add days to get to Saturday, and add 7 to that
+  } catch(e) { this.logError('Exposify.prototype.getFirstDayOfSpringBreak', e); }
 } // end Exposify.prototype.getFirstDayOfSpringBreak
 
 
@@ -1671,8 +1666,10 @@ Exposify.prototype.getHtmlOutputFromFile = function(filename) {
  * @return {number}
  */
 Exposify.prototype.getLastDayOfMonth = function(month, year) {
-   month += 1;
-   return month === 2 ? year & 3 || !(year % 25) && year & 15 ? 28 : 29 : 30 + (month + (month >> 3 ) & 1); // do some bit twiddling to figure out the last day of any given month, hard to read code courtesy of http://jsfiddle.net/TrueBlueAussie/H89X3/22/
+  try {
+    month += 1;
+    return month === 2 ? year & 3 || !(year % 25) && year & 15 ? 28 : 29 : 30 + (month + (month >> 3 ) & 1); // do some bit twiddling to figure out the last day of any given month, hard to read code courtesy of http://jsfiddle.net/TrueBlueAussie/H89X3/22/
+  } catch (e) { this.logError('Exposify.prototype.getLastDayOfMonth', e); }
 } // end Exposify.prototype.getLastDayOfMonth
 
 
@@ -1682,13 +1679,15 @@ Exposify.prototype.getLastDayOfMonth = function(month, year) {
  * @return {string} newName - The name in first last order.
  */
 Exposify.prototype.getNameFirstLast = function(name) {
-  var names = name.split(','); // if name string contains a comma, assume they are in last, first order and split them at the comma
-  if (names.length > 1) { // if, for some reason, the name is already first name first
-    var newName = names[1].trim() + ' ' + names[0].trim(); // remove leading and trailing whitespace but add a space between them
-  } else {
-    var newName = names[0];
-  }
-  return newName;
+  try {
+    var names = name.split(','); // if name string contains a comma, assume they are in last, first order and split them at the comma
+    if (names.length > 1) { // if, for some reason, the name is already first name first
+      var newName = names[1].trim() + ' ' + names[0].trim(); // remove leading and trailing whitespace but add a space between them
+    } else {
+      var newName = names[0];
+    }
+    return newName;
+  } catch(e) { this.logError('Exposify.prototype.getNameFirstLast', e); }
 } // end Exposify.prototype.getNameFirstLast
 
 
@@ -1698,9 +1697,11 @@ Exposify.prototype.getNameFirstLast = function(name) {
  * @return {string} newName - The name in last, first order.
  */
 Exposify.prototype.getNameLastFirst = function(name) {
-  var names = name.split(' '); // if names are in first last order, split them at the space
-  var newName = names.pop() + ', ' + names.join(' '); // insert commas between the names and add a space
-  return newName;
+  try {
+    var names = name.split(' '); // if names are in first last order, split them at the space
+    var newName = names.pop() + ', ' + names.join(' '); // insert commas between the names and add a space
+    return newName;
+  } catch(e) { this.logError('Exposify.prototype.getNameLastFirst', e); }
 } // end Exposify.prototype.getNameLastFirst
 
 
@@ -1766,8 +1767,10 @@ Exposify.prototype.getSectionTitle = function(sheet) {
  * @return {string} semesterTitle - The semester.
  */
 Exposify.prototype.getSemesterTitle = function(sheet) {
-  var semesterTitle = sheet.getRange('A2').getValue(); // the semester, from the gradebook
-  return semesterTitle;
+  try {
+    var semesterTitle = sheet.getRange('A2').getValue(); // the semester, from the gradebook
+    return semesterTitle;
+  } catch(e) { this.logError('Exposify.prototype.getSemesterTitle', e); }
 } // end Exposify.prototype.getSemesterTitle
 
 
@@ -1777,8 +1780,10 @@ Exposify.prototype.getSemesterTitle = function(sheet) {
  * @return {string}
  */
 Exposify.prototype.getSemesterYearString = function(semester) {
-  var year = new Date().getFullYear(); // assume any given gradebook is being created for the current year (not sure if that's a good idea, but it seems likely in the vast majority of cases)
-  return semester + ' ' + year; // create a string from the semester and the current year, i.e. 'Fall 2015'
+  try {
+    var year = new Date().getFullYear(); // assume any given gradebook is being created for the current year (not sure if that's a good idea, but it seems likely in the vast majority of cases)
+    return semester + ' ' + year; // create a string from the semester and the current year, i.e. 'Fall 2015'
+  } catch(e) { this.logError('Exposify.prototype.getSemesterYearString', e); }
 } // end Exposify.prototype.getSemesterYearString
 
 
@@ -1879,17 +1884,19 @@ Exposify.prototype.getStudentNames = function(sheet) {
  * @return {number}
  */
 Exposify.prototype.getTuesdayOfThanksgivingWeek = function(year) {
-  var firstDayOfNovember = new Date(year, 10, 1).getDay();
-  var firstThursdayOfNovember = 1; // if first day of November is a Thursday
-  if (firstDayOfNovember < 4) {
-    firstThursdayOfNovember = (5 - firstDayOfNovember); // if it's before Thursday, calculate the date of the next Thursday
-  } else if (firstDayOfNovember > 4) {
-    firstThursdayOfNovember = 7 - (firstDayOfNovember - 5); // if it's after Thursday, calculate the date of the following Thursday
-  }
-  function findThanksgiving(day) {
-    return day + 7 > 30 ? day : findThanksgiving(day + 7); // use recursion to continue adding seven to the memoized day variable until doing so would result in a value greater than 30, thus we have the last Thursday in November
-  }
-  return findThanksgiving(firstThursdayOfNovember) - 2; // the Tuesday of Thanksgiving week is the value of Thanksgiving Day minus 2 days
+  try {
+    var firstDayOfNovember = new Date(year, 10, 1).getDay();
+    var firstThursdayOfNovember = 1; // if first day of November is a Thursday
+    if (firstDayOfNovember < 4) {
+      firstThursdayOfNovember = (5 - firstDayOfNovember); // if it's before Thursday, calculate the date of the next Thursday
+    } else if (firstDayOfNovember > 4) {
+      firstThursdayOfNovember = 7 - (firstDayOfNovember - 5); // if it's after Thursday, calculate the date of the following Thursday
+    }
+    function findThanksgiving(day) {
+      return day + 7 > 30 ? day : findThanksgiving(day + 7); // use recursion to continue adding seven to the memoized day variable until doing so would result in a value greater than 30, thus we have the last Thursday in November
+    }
+    return findThanksgiving(firstThursdayOfNovember) - 2; // the Tuesday of Thanksgiving week is the value of Thanksgiving Day minus 2 days
+  } catch(e) { this.logError('Exposify.prototype.getTuesdayOfThanksgivingWeek', e); }
 } // end Exposify.prototype.getTuesdayOfThanksgivingWeek
 
 
@@ -1956,7 +1963,7 @@ Exposify.prototype.logError = function(callingFunction, traceback) {
     }
     pasteRange.setValues([info]);
   }
-  var msg = 'You can tell Steve you saw this error message, and maybe he can fix it:\n(' + errorLogSheet.getLastRow() + ') ' + traceback;
+  var msg = 'I\'m sorry, but there was a problem! Try again, because sometimes the problem is Google, not Exposify. But you can tell Steve you saw this error message, and maybe he can fix it:\n(' + errorLogSheet.getLastRow() + ') ' + traceback;
   var alert = this.alert({msg: msg});
   alert(); // this will be annoying if there are too many of them
 } // end Exposify.prototype.logError
@@ -2163,16 +2170,16 @@ Exposify.prototype.setupCreateFolderStructure = function(sheet) {
  * @param {Array} courseInfo.meetingDays - A list of days of the week when the class meets.
  */
 Exposify.prototype.setupNewGradebook = function(sheet, courseInfo) {
-  var spreadsheet = this.spreadsheet;
-  var newName = courseInfo.course === OTHER_COURSE_NUMBER ? courseInfo.section : courseInfo.course + ':' + courseInfo.section; // only show the course number if it's real
-  var exists = spreadsheet.getSheetByName(newName);
-  if (exists !== null && sheet.getName() === newName) {
-    var alert = this.alert({msg: ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS.replace('$', newName), title: 'Setup New Gradebook'}); // avoid creating a new sheet with the same name as an existing sheet
-    alert();
-    return;
-  }
-  var newCourse = new Course(courseInfo); // create new Course object with information collected from the user by the dialog box
   try {
+    var spreadsheet = this.spreadsheet;
+    var newName = courseInfo.course === OTHER_COURSE_NUMBER ? courseInfo.section : courseInfo.course + ':' + courseInfo.section; // only show the course number if it's real
+    var exists = spreadsheet.getSheetByName(newName);
+    if (exists !== null && sheet.getName() === newName) {
+      var alert = this.alert({msg: ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS.replace('$', newName), title: 'Setup New Gradebook'}); // avoid creating a new sheet with the same name as an existing sheet
+      alert();
+      return;
+    }
+    var newCourse = new Course(courseInfo); // create new Course object with information collected from the user by the dialog box
     var check = this.doFormatSheet({course: newCourse, sheet: sheet}); // do the actual work, probably in a way that I should further refactor
     if (check === true) {
       var checkStatus = this.setSheetStatus(sheet);
@@ -2265,12 +2272,24 @@ Format.prototype.apply = function(sheet) {
  * @return {Format} this - Return this object for chaining.
  */
 Format.prototype.setShadedRows = function() {
-  this.shadedRows = true;
-  return this;
+  try {
+    this.shadedRows = true;
+    return this;
+  } catch(e) { expos.logError('Format.prototype.setShadedRows', e); }
 } // end Format.prototype.setShadedRows
 
 
 // FOLDERSTRUCTURE FUNCTIONS
+
+/**
+ * Create a folder object with information about a folder stored in the user's Google Drive.
+ * @constructor
+ */
+function Folder(name, parent, path) {
+  this.name = name;
+  this.parent = parent;
+  this.path = path;
+}; // end Folder
 
 
 Exposify.prototype.setupShareFolders = function(sheet) {
