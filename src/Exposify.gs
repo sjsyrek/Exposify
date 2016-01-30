@@ -111,6 +111,8 @@ var ALERT_SETUP_SHARE_FOLDERS_SUCCESS = 'The folders were successfully shared!';
 var ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS = 'A gradebook for section $ already exists. If you want to overwrite it, make it the active spreadsheet and try again.';
 var ALERT_SETUP_NEW_GRADEBOOK_SUCCESS = 'New gradebook created for $.';
 
+var ALERT_ADMIN_NO_WARNINGS = 'There are no warnings to issue for this section!';
+
 var TOAST_DISPLAY_TIME = 10; // how long should the little toast window linger before disappearing
 var TOAST_TITLE = 'Success!' // toast window title
 
@@ -760,8 +762,20 @@ Exposify.prototype.adminGenerateWarningRosterGetStudents = function(sheet) {
 
 
 Exposify.prototype.adminGenerateWarningRoster = function(warnings) {
-  Logger.log(warnings);
-}
+  try {
+    var w1 = warnings['w1'];
+    var w2 = warnings['w2'];
+    var w3 = warnings['w3'];
+    if (w1.length === 0 && w2.length === 0 && w3.length === 0) {
+      var alert = this.alert({msg: ALERT_ADMIN_NO_WARNINGS, title: 'Generate Warning Roster'});
+      alert();
+      return;
+    }
+    Logger.log(w1);
+    Logger.log(w2);
+    Logger.log(w3);
+  } catch(e) { this.logError('Exposify.prototype.adminGenerateWarningRoster', e); }
+} // end Exposify.prototype.adminGenerateWarningRoster
 
 // EXPOSIFY FUNCTIONS
 
@@ -780,7 +794,8 @@ Exposify.prototype.adminGenerateWarningRoster = function(warnings) {
 Exposify.prototype.alert = function(confirmation) {
   try {
     if (!confirmation.hasOwnProperty('alertType')) {
-      return this.doMakeAlert({alertType: OK, msg: confirmation.msg}); // A simple alert with an OK button is the default
+      confirmation.alertType = OK;
+      return this.doMakeAlert(confirmation); // A simple alert with an OK button is the default
     } else if (!this.alertUi.hasOwnProperty(confirmation.alertType)) {
       var e = 'Alert type ' + confirmation.alertType + ' is not defined on Exposify.';
       throw e // Throw an exception if the alert type doesn't exist, probably superfluous error checking
