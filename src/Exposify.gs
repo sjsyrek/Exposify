@@ -105,11 +105,11 @@ var ALERT_INSTALL_THANKS = 'Thanks for installing Exposify! Add a new section by
 var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. Do that before anything else.';
 var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '\'$\' successfully imported! You should double-check the spreadsheet to make sure it\'s correct.';
 var ALERT_SETUP_CREATE_CONTACTS_SUCCESS = 'New contact group successfully created for $.';
-var ALERT_SETUP_CREATE_FOLDER_STRUCTURE_NOTHING_NEW = 'Nothing to update.';
-var ALERT_SETUP_SHARE_FOLDERS = 'This will share the course folder with all students and each student folder with that student, respectively. Do you wish to proceed?';
+
 var ALERT_SETUP_SHARE_FOLDERS_MISSING_COURSE_FOLDER = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command.';
 var ALERT_SETUP_SHARE_FOLDERS_MISSING_GRADED_FOLDER = 'There is no folder for graded papers for this course. Use the Create Folder Structure command to create one before executing this command.';
 var ALERT_SETUP_SHARE_FOLDERS_SUCCESS = 'The folders were successfully shared!';
+
 var ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS = 'A gradebook for section $ already exists. If you want to overwrite it, make it the active spreadsheet and try again.';
 var ALERT_SETUP_NEW_GRADEBOOK_SUCCESS = 'New gradebook created for $.';
 
@@ -2199,6 +2199,18 @@ Exposify.prototype.setupNewGradebook = function(sheet, courseInfo) {
 
 
 /**
+ * Share the course folder with all students in the section, and share their graded papers folders with each
+ * of them, respectively.
+ * @param  {Sheet} - The Google Apps Sheet object with the gradebook containing the students with whom to share folders.
+ */
+Exposify.prototype.setupShareFolders = function(sheet) {
+  try {
+
+  } catch(e) { this.logError('Exposify.prototype.setupShareFolders', e); }
+} // end Exposify.prototype.setupShareFolders
+
+
+/**
  * Display a sidebar to the user.
  * @param {Object} sidebar - An object literal constant containing data for building the sidebar.
  */
@@ -2278,64 +2290,6 @@ Format.prototype.setShadedRows = function() {
   } catch(e) { expos.logError('Format.prototype.setShadedRows', e); }
 } // end Format.prototype.setShadedRows
 
-
-// FOLDERSTRUCTURE FUNCTIONS
-
-/**
- * Create a folder object with information about a folder stored in the user's Google Drive.
- * @constructor
- */
-function Folder(name, parent, path) {
-  this.name = name;
-  this.parent = parent;
-  this.path = path;
-}; // end Folder
-
-
-Exposify.prototype.setupShareFolders = function(sheet) {
-  try {
-    if (alertYesNo(ALERT_SETUP_SHARE_FOLDERS)) {
-      var sheet = activeSheet();
-      doSetupShareFolders(sheet);
-    }
-  } catch(e) { this.logError('Exposify.prototype.setupShareFolders', e); }
-} // end Exposify.prototype.setupShareFolders
-
-function doSetupShareFolders(sheet) { // unshare needed for students who drop, also need to use addEditors instead of addEditor and maybe create an array of functions to call with student names
-  var sheet = activeSheet();
-  var students = getStudentsWithIds(sheet)
-  var courseTitle = getCourseTitle(sheet);
-  var folderIter = DriveApp.getFoldersByName(courseTitle);
-  var courseFolder = folderIter.hasNext() ? folderIter.next() : null; // I would use Document Properties for this, but I can't be sure the folder ids won't change
-  var studentsNullList = [];
-  if (courseFolder === null) {
-    ui.alert(ALERT_SETUP_SHARE_FOLDERS_MISSING_COURSE_FOLDER);
-    return;
-  }
-  folderIter = DriveApp.getFoldersByName(GRADED_PAPERS_FOLDER_NAME);
-  var gradedFolder = folderIter.hasNext() ? folderIter.next() : null;
-  if (gradedFolder === null) {
-    ui.alert(ALERT_SETUP_SHARE_FOLDERS_MISSING_GRADED_FOLDER);
-    return;
-  }
-  students.forEach( function(student) {
-    folderIter = DriveApp.getFoldersByName(student.name);
-    var studentFolder = folderIter.hasNext() ? folderIter.next() : null;
-    if (studentFolder === null) {
-      studentsNullList.push(student.name);
-    } else {
-      courseFolder.addEditor(student.email);
-      studentFolder.addEditor(student.email);
-    }
-  });
-  var missingAlert = function() {
-    var alert = 'The following students did not have folders:\n\n';
-      studentsNullList.forEach( function(student) { alert = alert.concat(student.name + '\n'); });
-      return alert;
-    };
-  missingAlert();
-  spreadsheet.toast(ALERT_SETUP_SHARE_FOLDERS_SUCCESS, TOAST_TITLE, TOAST_DISPLAY_TIME);
-}
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
