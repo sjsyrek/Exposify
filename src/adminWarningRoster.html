@@ -18,7 +18,19 @@ Modal dialog box for Exposify.gs called from exposifyAdminGenerateWarningRoster(
     $('#buttons').hide();
     google.script.run.withSuccessHandler(displayStudents).adminGenerateWarningRosterCallbackGetStudents();
     $('#warning_roster').submit(function() {
-      var warnings = $('select[name="warning"]').val();
+      var w1 = [];
+      var w2 = [];
+      var w3 = [];
+      $('input[id$="w1"]:checked').each(function() {
+        w1.push(makeStudent($(this).val()));  
+      });
+      $('input[id$="w2"]:checked').each(function() {
+        w2.push(makeStudent($(this).val()));  
+      });
+      $('input[id$="w3"]:checked').each(function() {
+        w3.push(makeStudent($(this).val()));  
+      });
+      var warnings = {w1: w1, w2: w2, w3: w3};
       google.script.run.adminGenerateWarningRosterCallback(warnings); // return information to server script
       google.script.host.close(); // close dialog box
     }); // end submit()
@@ -27,15 +39,30 @@ Modal dialog box for Exposify.gs called from exposifyAdminGenerateWarningRoster(
     if (students.length === 0) {
       $('#heading').replaceWith('There are no students in this section!');
     } else {
-      var menu = '<select name="warning"><option value="no">No warning</option><option value="w1">W1</option><option value="w2">W2</option><option value="w3">W3</option></select>';   
+      var none = '<input type="radio" id="none" value="$" checked="checked"><label for="none">No warning</label>';
+      var w1 = '<label for="$w1">W1 </label><input type="radio" id="$w1" name="$" value="$w1">';
+      var w2 = '<label for="$w2">W2 </label><input type="radio" id="$w2" name="$" value="$w2">';
+      var w3 = '<label for="$w3">W3 </label><input type="radio" id="$w3" name="$" value="$w3">';
+      var radios = w1 + w2 + w3;  
       students.forEach( function(student) {
         var name = student.name;
         var netid = student.netid;
-        var item = '<p>' + menu + ' ' + name + ' (' + netid + ') </p>';
+        var item = '<div class="radio">' + radios + name + ' (' + netid + ')</div>';
+        var nameId = name + ":" + netid;
+        var re = /\$/g;
+        var item = item.replace(re, nameId);
         $(item).appendTo('#inner');
       });
     }    
     $('#heading').show();
     $('#buttons').show();
   } // end displayStudents()
+  function makeStudent(value) {
+	var split = value.split(':');
+	var last = split[0].split(' ')[1];
+	var first = split[0].split(' ')[0];
+	var id = split[1];
+	var student = {last: last, first: first, id: id};
+	return student;
+  } // end makeStudent()
 </script>

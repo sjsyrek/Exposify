@@ -43,6 +43,7 @@
 //TODO: make error messages and alert windows more informative
 //TODO: revise comments
 //TODO: create nicer finish window for Create Folder Structure
+//TODO: add tab indexes to dialogs
 
 
 /**
@@ -743,6 +744,16 @@ function adminGenerateWarningRosterCallbackGetStudents() { return expos.adminGen
 Exposify.prototype.adminGenerateWarningRosterGetStudents = function(sheet) {
   try {
     var students = this.getStudents(sheet);
+    var that = this;
+    students.forEach(function(student) {
+      student.name = that.getNameFirstLast(student.name);
+    });
+    students.sort(function (a, b) {
+      if (a.name > b.name) {
+        return 1;
+      }
+      return -1;
+    });
     return students;
   } catch(e) { this.logError('Exposify.prototype.adminGenerateWarningRosterGetStudents', e); }
 } // end Exposify.prototype.adminGenerateWarningRosterGetStudents
@@ -1435,6 +1446,7 @@ Exposify.prototype.executeMenuCommand = function(params) {
     if (params.hasOwnProperty('alert')) { // show the alert, if there is one
       var alert = this.alert(params.alert);
       var response = alert();
+      if (response === false) { return; }
     }
     if (params.hasOwnProperty('dialog') && response === true) { // show the dialog, if there is one, and if the alert response is true
       var dialog = params.dialog;
