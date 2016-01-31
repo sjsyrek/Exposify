@@ -1873,6 +1873,7 @@ Exposify.prototype.getLastDayOfMonth = function(month, year) {
  * @param  {Folder} folder - A Folder object.
  * @param  {RegExp} re - A RegExp object.
  * @param  {string=} type - A file MIME type to optionally select for.
+ * @return  {Array} filtered - An array of matched files, or an empty array if none.
  */
 Exposify.prototype.getMatchedFiles = function(folder, re, type) {
   try {
@@ -2437,7 +2438,7 @@ Exposify.prototype.setupShareFolders = function(sheet) {
       return;
     }
     courseFolder.setShareableByEditors(false);
-    var currentEditors = courseFolder.getEditors();
+    var currentEditors = courseFolder.getEditors().map(function(editor) { return editor.getEmail(); });
     currentEditors.forEach(function(editor) {
       if (that.arrayContains(emails, editor) === false) { courseFolder.removeEditor(editor); }
     });
@@ -2457,6 +2458,12 @@ Exposify.prototype.setupShareFolders = function(sheet) {
       return;
     }
     var studentFolders = [];
+    while (subFolders.hasNext()) { studentFolders.push(subFolders.next()); }
+    studentFolders.forEach(function(folder) {
+      var name = folder.getName();
+
+    });
+
     while (subFolders.hasNext()) { studentFolders.push(subFolders.next().getName()); }
     students.forEach(function(student) {
       var name = that.getNameFirstLast(student.name);
@@ -2472,6 +2479,29 @@ Exposify.prototype.setupShareFolders = function(sheet) {
     spreadsheet.toast(ALERT_SETUP_SHARE_FOLDERS_SUCCESS.replace('$', section), TOAST_TITLE, TOAST_DISPLAY_TIME);
   } catch(e) { this.logError('Exposify.prototype.setupShareFolders', e); }
 } // end Exposify.prototype.setupShareFolders
+
+
+/**
+ * Search by name for the email address of a student
+ * @param {string} name - The student's name to use in the search.
+ * @return {string} email - The email address or null if none is found.
+ */
+Exposify.prototype.getStudentEmail = function(name) {
+  try {
+    var sheet = this.sheet;
+    var students = this.getStudents(sheet);
+    var name = this.getNameFirstLast(name);
+    var email = null;
+    var that = this;
+    students.forEach(function(student) {
+      var studentName = that.getNameFirstLast(student.name);
+      if (name = studentName) {
+        email = student.email;
+      }
+    });
+    return email;
+    } catch(e) { this.logError('Exposify.prototype.getStudentEmail', e); }
+} // end Exposify.prototype.getStudentEmail
 
 
 /**
