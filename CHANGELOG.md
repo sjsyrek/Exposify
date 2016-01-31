@@ -7,6 +7,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Complete help documentation in help.html
 - Implementations for remaining functions
 
+### Changed
+- Abstracted out repetitive code into getMatchedFiles() function
+
 ## 0.1.0
 ### Added
 - README.md

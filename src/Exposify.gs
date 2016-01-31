@@ -38,10 +38,6 @@
  */
 
 
-//TODO: rewrite functions for folder sharing, collecting and returning assignments
-//TODO: make error messages and alert windows more informative
-
-
 /**
  * Create an interface to the Exposify framework without polluting the global namespace,
  * in the event other scripts are attached to this spreadsheet or Exposify's functionality
@@ -100,8 +96,8 @@ var ALERT_ASSIGNMENTS_COPY_NOT_RETURNED = 'Some files could not be returned. Mak
 var ALERT_ASSIGNMENTS_RETURN_SUCCESS = 'Successfully returned $ assignments!';
 var ALERT_ASSIGNMENTS_NOTHING_FOUND = 'No assignments with the name "$" were found in the course folder.';
 var ALERT_ASSIGNMENTS_NOTHING_RETURNED = 'No assignments were returned. Check your folder structure and try again.';
-var ALERT_ADMIN_GENERATE_GRADEBOOK_SUCCESS = 'New gradebook file for $ successfully created!';
-var ALERT_ADMIN_GENERATE_WARNING_ROSTER_SUCCESS = 'Warning roster for section $ successfully created!';
+var ALERT_ADMIN_GENERATE_GRADEBOOK_SUCCESS = 'New gradebook file for $ successfully created in My Drive!';
+var ALERT_ADMIN_GENERATE_WARNING_ROSTER_SUCCESS = 'Warning roster for section $ successfully created in My Drive!';
 var ALERT_ADMIN_NO_WARNINGS = 'There are no warnings to issue for this section!';
 var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. Do that before anything else.';
 var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '$ successfully imported! You should double-check the spreadsheet to make sure it is correct.';
@@ -763,8 +759,14 @@ Exposify.prototype.adminGenerateWarningRoster = function(warnings) {
     var sheet = this.sheet;
     var semester = this.getSemesterTitle(sheet);
     var section = this.getSectionTitle(sheet);
-    var email = spreadsheet.getOwner().getEmail();
-    var instructor = ContactsApp.getContact(email).getFullName();
+    var semesterFolder = this.getSemesterFolder(sheet);
+    if (semesterFolder !== null) {
+      var instructor = semesterFolder.getOwner().getName();
+    }
+    if (instructor === null) {
+      var email = spreadsheet.getOwner().getEmail();
+      var instructor = ContactsApp.getContact(email).getFullName();
+    }
     var course = '01:355:' + this.getCourseNumber(sheet) + ':' + section;
     var title = this.getCourseTitle(sheet) + ' - Warnings Roster - ' + semester;
     var styles = {};
@@ -2430,7 +2432,7 @@ Exposify.prototype.setupShareFolders = function(sheet) {
     var emails = students.map(function(student) { return student.email; });
     var courseFolder = this.getCourseFolder(sheet);
     if (courseFolder === null) {
-      var alert = this.alert({msg: ALERT_MISSING_COURSE_FOLDER, title: 'Share Folders'});
+      var alert = this.alert({msg: ALERT_MISSING_COURSE_FOLDER, title: 'Share Folders With Students'});
       alert();
       return;
     }
@@ -2444,13 +2446,13 @@ Exposify.prototype.setupShareFolders = function(sheet) {
     });
     var gradedPapersFolder = this.getGradedPapersFolder(sheet);
     if (gradedPapersFolder === null) {
-      var alert = this.alert({msg: ALERT_MISSING_GRADED_FOLDER, title: 'Share Folders'});
+      var alert = this.alert({msg: ALERT_MISSING_GRADED_FOLDER, title: 'Share Folders With Students'});
       alert();
       return;
     }
     var subFolders = gradedPapersFolder.getFolders();
     if (subFolders === null) {
-      var alert = this.alert({msg: ALERT_MISSING_GRADED_PAPER_FOLDERS, title: 'Share Folders'});
+      var alert = this.alert({msg: ALERT_MISSING_GRADED_PAPER_FOLDERS, title: 'Share Folders With Students'});
       alert();
       return;
     }
