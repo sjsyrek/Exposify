@@ -2058,6 +2058,28 @@ Exposify.prototype.getStudentCount = function(sheet) {
 
 
 /**
+ * Search by name for the email address of a student
+ * @param {Array} students - An array of student objects to search.
+ * @param {string} name - The student's name to use in the search.
+ * @return {string} email - The email address or null if none is found.
+ */
+Exposify.prototype.getStudentEmail = function(students, name) {
+  try {
+    var name = this.getNameFirstLast(name);
+    var email = null;
+    var that = this;
+    students.forEach(function(student) {
+      var studentName = that.getNameFirstLast(student.name);
+      if (name === studentName) {
+        email = student.email;
+      }
+    });
+    return email;
+    } catch(e) { this.logError('Exposify.prototype.getStudentEmail', e); }
+} // end Exposify.prototype.getStudentEmail
+
+
+/**
  * Get the student folders for the gradebook on the active spreadsheet.
  * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated student folders.
  */
@@ -2423,10 +2445,11 @@ Exposify.prototype.setupNewGradebook = function(sheet, courseInfo) {
 /**
  * Share the course folder with all students in the section, and share their graded papers folders with each
  * of them, respectively.
- * @param  {Sheet} sheet - The Google Apps Sheet object with the gradebook containing the students with whom to share folders.
+ * @param {Sheet} sheet - The Google Apps Sheet object with the gradebook containing the students with whom to share folders.
  */
 Exposify.prototype.setupShareFolders = function(sheet) {
   try {
+    var spreadsheet = this.spreadsheet;
     var section = this.getSectionTitle(sheet);
     var students = this.getStudents(sheet);
     var that = this;
@@ -2458,50 +2481,22 @@ Exposify.prototype.setupShareFolders = function(sheet) {
       return;
     }
     var studentFolders = [];
+    //var studentNames = students.map(function(student) { return that.getNameFirstLast(student.name); });
     while (subFolders.hasNext()) { studentFolders.push(subFolders.next()); }
     studentFolders.forEach(function(folder) {
-      var name = folder.getName();
-
-    });
-
-    while (subFolders.hasNext()) { studentFolders.push(subFolders.next().getName()); }
-    students.forEach(function(student) {
-      var name = that.getNameFirstLast(student.name);
-      var email = student.email;
-      if (that.arrayContains(studentFolders, name)) {
-        var studentFolder = that.getFolder(name);
-        studentFolder.addEditor(email);
-      }
+      folder.getEditors().forEach(function(editor) { folder.removeEditor(editor); });
+      var folderName = folder.getName();
+      //if (that.arrayContains(studentNames, folderName)) {
+        var email = that.getStudentEmail(students, folderName);
+        if (email !== null) { folder.addEditor(email); }
+      //}
       Utilities.sleep(100); // to avoid quota exceptions
     });
-    var currentEditors = gradedPapersFolder.getEditors();
-    currentEditors.forEach(function(editor) { gradedPapersFolder.removeEditor(editor); });
+    var gradedEditors = gradedPapersFolder.getEditors();
+    gradedEditors.forEach(function(editor) { gradedPapersFolder.removeEditor(editor); });
     spreadsheet.toast(ALERT_SETUP_SHARE_FOLDERS_SUCCESS.replace('$', section), TOAST_TITLE, TOAST_DISPLAY_TIME);
   } catch(e) { this.logError('Exposify.prototype.setupShareFolders', e); }
 } // end Exposify.prototype.setupShareFolders
-
-
-/**
- * Search by name for the email address of a student
- * @param {string} name - The student's name to use in the search.
- * @return {string} email - The email address or null if none is found.
- */
-Exposify.prototype.getStudentEmail = function(name) {
-  try {
-    var sheet = this.sheet;
-    var students = this.getStudents(sheet);
-    var name = this.getNameFirstLast(name);
-    var email = null;
-    var that = this;
-    students.forEach(function(student) {
-      var studentName = that.getNameFirstLast(student.name);
-      if (name = studentName) {
-        email = student.email;
-      }
-    });
-    return email;
-    } catch(e) { this.logError('Exposify.prototype.getStudentEmail', e); }
-} // end Exposify.prototype.getStudentEmail
 
 
 /**

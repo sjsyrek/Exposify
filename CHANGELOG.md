@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 - Complete help documentation in help.html
 - Implementations for remaining functions
+- getStudentEmail() function
 
 ### Changed
 - Abstracted out repetitive code into getMatchedFiles() function
