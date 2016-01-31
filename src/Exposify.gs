@@ -915,7 +915,7 @@ Exposify.prototype.assignmentsCalcWordCountsGetTitle = function(sheet) {
   try {
     var courseTitle = this.getCourseTitle(sheet);
     var enrollment = this.getStudentCount(sheet);
-    var title = courseTitle + '\n(' + enrollment + ' students)';
+    var title = courseTitle + '<br />(' + enrollment + ' students)';
     return title;
   } catch(e) { this.logError('Exposify.prototype.assignmentsCalcWordCountsGetTitle', e); }
 } // end Exposify.prototype.assignmentsCalcWordCountsGetTitle
@@ -2130,15 +2130,17 @@ Exposify.prototype.getWordCounts = function(sheet, re) {
       var e = 'No course folder could be found for this gradebook.';
       throw e; // throw an exception if there's no course folder present
     }
-    var filesIter = courseFolder.getFiles();
-    var filtered = [];
-    while (filesIter.hasNext()) {
-      var file = filesIter.next();
-      var match = file.getName().match(re); // match each filename found in the course folder against the supplied regular expression
-      if (match !== null && file.getMimeType() === 'application/vnd.google-apps.document') { // make sure the document is a Google Doc
-        filtered.push(file);
-      }
-    }
+    var type = 'application/vnd.google-apps.document';
+    var filtered = this.getMatchedFiles(courseFolder, re, type);
+//    var filesIter = courseFolder.getFiles();
+//     var filtered = [];
+//     while (filesIter.hasNext()) {
+//       var file = filesIter.next();
+//       var match = file.getName().match(re); // match each filename found in the course folder against the supplied regular expression
+//       if (match !== null && file.getMimeType() === 'application/vnd.google-apps.document') { // make sure the document is a Google Doc
+//         filtered.push(file);
+//       }
+//     }
     var counts = [];
     filtered.forEach(function(file) {
       var doc = DocumentApp.openById(file.getId()).getBody().getText();
