@@ -39,11 +39,11 @@ Modal dialog box for Exposify.gs called from exposifyAdminGenerateWarningRoster(
     if (students.length === 0) {
       $('#heading').replaceWith('There are no students in this section!');
     } else {
-      var none = '<input type="radio" id="none" value="$" checked="checked"><label for="none">No warning</label>';
-      var w1 = '<label for="$w1">W1 </label><input type="radio" id="$w1" name="$" value="$w1">';
-      var w2 = '<label for="$w2">W2 </label><input type="radio" id="$w2" name="$" value="$w2">';
-      var w3 = '<label for="$w3">W3 </label><input type="radio" id="$w3" name="$" value="$w3">';
-      var radios = w1 + w2 + w3;  
+      var none = '<label for="$w0">No warning</label><input type="radio" id="$w0" name="$" value="$:w0" checked="checked">';
+      var w1 = '<label for="$w1">W1 </label><input type="radio" id="$w1" name="$" value="$:w1">';
+      var w2 = '<label for="$w2">W2 </label><input type="radio" id="$w2" name="$" value="$:w2">';
+      var w3 = '<label for="$w3">W3 </label><input type="radio" id="$w3" name="$" value="$:w3">';
+      var radios = w1 + w2 + w3 + none;
       students.forEach( function(student) {
         var name = student.name;
         var netid = student.netid;

@@ -96,22 +96,19 @@ var MIME_TYPE_GOOGLE_SHEET = 'application/vnd.google-apps.spreadsheet';
 /**
  * Default text to display for various alert messages throughout the application.
  */
-var ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS = 'New document files successfully created for the students in section $.';
-var ALERT_EDIT_HEADER_WARNING = 'Please do not edit the first two rows and columns of this spreadsheet. Doing so will break Exposify! If you changed these values, you might want to change them back. Thank you!';
-var ALERT_GENERATE_GRADEBOOK_SUCCESS = 'New gradebook file for "$" successfully created!';
 var ALERT_INSTALL_THANKS = 'Thanks for installing Exposify! Add a new section by selecting \"Setup New Expos Section\" in the Exposify menu.';
+var ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS = 'New document files successfully created for the students in section $.';
+var ALERT_ADMIN_GENERATE_GRADEBOOK_SUCCESS = 'New gradebook file for "$" successfully created!';
+var ALERT_ADMIN_GENERATE_WARNING_ROSTER_SUCCESS = 'Warning roster for "$" successfully created!';
+var ALERT_ADMIN_NO_WARNINGS = 'There are no warnings to issue for this section!';
 var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. Do that before anything else.';
 var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '\'$\' successfully imported! You should double-check the spreadsheet to make sure it\'s correct.';
 var ALERT_SETUP_CREATE_CONTACTS_SUCCESS = 'New contact group successfully created for $.';
-
 var ALERT_SETUP_SHARE_FOLDERS_MISSING_COURSE_FOLDER = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command.';
 var ALERT_SETUP_SHARE_FOLDERS_MISSING_GRADED_FOLDER = 'There is no folder for graded papers for this course. Use the Create Folder Structure command to create one before executing this command.';
 var ALERT_SETUP_SHARE_FOLDERS_SUCCESS = 'The folders were successfully shared!';
-
 var ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS = 'A gradebook for section $ already exists. If you want to overwrite it, make it the active spreadsheet and try again.';
 var ALERT_SETUP_NEW_GRADEBOOK_SUCCESS = 'New gradebook created for $.';
-
-var ALERT_ADMIN_NO_WARNINGS = 'There are no warnings to issue for this section!';
 
 var TOAST_DISPLAY_TIME = 10; // how long should the little toast window linger before disappearing
 var TOAST_TITLE = 'Success!' // toast window title
@@ -742,7 +739,72 @@ function setupAddStudentsCallback(id) { expos.setupAddStudents(expos.sheet, id);
 function adminGenerateWarningRosterCallback(warnings) { expos.adminGenerateWarningRoster(warnings); }
 function adminGenerateWarningRosterCallbackGetStudents() { return expos.adminGenerateWarningRosterGetStudents(expos.sheet); }
 
-// work in progress
+
+// EXPOSIFY FUNCTIONS
+
+
+/**
+ * Generate a warning roster based on information collected from the user about which students should receive which warning.
+ * @param  {Object} warnings - An object containing arrays of objects corresponding to the three warning codes.
+ */
+Exposify.prototype.adminGenerateWarningRoster = function(warnings) {
+  try {
+    var w1 = warnings['w1'];
+    var w2 = warnings['w2'];
+    var w3 = warnings['w3'];
+    if (w1.length === 0 && w2.length === 0 && w3.length === 0) {
+      var alert = this.alert({msg: ALERT_ADMIN_NO_WARNINGS, title: 'Generate Warning Roster'});
+      alert();
+      return;
+    }
+    var spreadsheet = this.spreadsheet;
+    var sheet = this.sheet;
+    var semester = this.getSemesterTitle(sheet);
+    var section = this.getSectionTitle(sheet);
+    var email = spreadsheet.getOwner().getEmail();
+    var instructor = ContactsApp.getContact(email).getFullName();
+    var course = '01:355:' + this.getCourseNumber(sheet) + ':' + section;
+    var title = this.getCourseTitle(sheet) + ' - Warnings Roster - ' + semester;
+    var styles = {};
+    styles[DocumentApp.Attribute.BOLD] = false;
+    styles[DocumentApp.Attribute.HORIZONTAL_ALIGNMENT] = DocumentApp.HorizontalAlignment.LEFT;
+    styles[DocumentApp.Attribute.LINE_SPACING] = 1.3;
+    styles[DocumentApp.Attribute.INDENT_FIRST_LINE] = 0;
+    styles[DocumentApp.Attribute.FONT_FAMILY] = 'Georgia';
+    styles[DocumentApp.Attribute.FONT_SIZE] = 10;
+    styles[DocumentApp.Attribute.MARGIN_BOTTOM] = 72;
+    styles[DocumentApp.Attribute.MARGIN_LEFT] = 72;
+    styles[DocumentApp.Attribute.MARGIN_RIGHT] = 72;
+    styles[DocumentApp.Attribute.MARGIN_TOP] = 72;
+    var document = DocumentApp.create(title);
+    var body = document.getBody();
+    body.setAttributes(styles);
+    var first = body.getParagraphs()[0];
+    first.setText('Warnings Roster – ' + semester);
+    body.appendParagraph('Instructor: ' + instructor);
+    body.appendParagraph('Course and Section Number: ' + course);
+    var tableCells = [
+      ['Last Name', 'First Name', 'RUID', 'Warning']
+    ];
+    w1.forEach(function(student) { tableCells.push([student.last, student.first, student.id, 'W1']); });
+    w2.forEach(function(student) { tableCells.push([student.last, student.first, student.id, 'W2']); });
+    w3.forEach(function(student) { tableCells.push([student.last, student.first, student.id, 'W3']); });
+    body.appendTable(tableCells);
+    var pars = body.getParagraphs();
+    var last = pars[pars.length - 1];
+    last.setText('W1 Warning for poor performance (e.g. non-passing and/or missing work.)');
+    body.appendParagraph('W2 Warning for poor attendance or "never attended."');
+    body.appendParagraph('W3 Warning for poor performance and poor attendance.');
+    spreadsheet.toast(ALERT_ADMIN_GENERATE_WARNING_ROSTER_SUCCESS.replace('$', section), TOAST_TITLE, TOAST_DISPLAY_TIME); // cute pop-up window
+  } catch(e) { this.logError('Exposify.prototype.adminGenerateWarningRoster', e); }
+} // end Exposify.prototype.adminGenerateWarningRoster
+
+
+/**
+ * Retrieve the names and ids of the students in this section, used as a callback to client-side code.
+ * @param  {Sheet} sheet - The active Sheet object.
+ * @return {Array} students - An array of Student objects.
+ */
 Exposify.prototype.adminGenerateWarningRosterGetStudents = function(sheet) {
   try {
     var students = this.getStudents(sheet);
@@ -759,25 +821,6 @@ Exposify.prototype.adminGenerateWarningRosterGetStudents = function(sheet) {
     return students;
   } catch(e) { this.logError('Exposify.prototype.adminGenerateWarningRosterGetStudents', e); }
 } // end Exposify.prototype.adminGenerateWarningRosterGetStudents
-
-
-Exposify.prototype.adminGenerateWarningRoster = function(warnings) {
-  try {
-    var w1 = warnings['w1'];
-    var w2 = warnings['w2'];
-    var w3 = warnings['w3'];
-    if (w1.length === 0 && w2.length === 0 && w3.length === 0) {
-      var alert = this.alert({msg: ALERT_ADMIN_NO_WARNINGS, title: 'Generate Warning Roster'});
-      alert();
-      return;
-    }
-    Logger.log(w1);
-    Logger.log(w2);
-    Logger.log(w3);
-  } catch(e) { this.logError('Exposify.prototype.adminGenerateWarningRoster', e); }
-} // end Exposify.prototype.adminGenerateWarningRoster
-
-// EXPOSIFY FUNCTIONS
 
 
 /**
@@ -1147,7 +1190,7 @@ Exposify.prototype.doGenerateGradebook = function(sheet) {
     var format = new Format(course);
     format.apply(importSheet); // make sure the new sheet looks pretty
     importRange.setValues(values); // copy the relevant data from this sheet to the new spreadsheet, starting at the top left corner
-    spreadsheet.toast(ALERT_GENERATE_GRADEBOOK_SUCCESS.replace('$', title), TOAST_TITLE, TOAST_DISPLAY_TIME);
+    spreadsheet.toast(ALERT_ADMIN_GENERATE_GRADEBOOK_SUCCESS.replace('$', title), TOAST_TITLE, TOAST_DISPLAY_TIME);
   } catch(e) { this.logError('Exposify.prototype.doGenerateGradebook', e); }
 } // end Exposify.prototype.doGenerateGradebook
 
