@@ -2315,7 +2315,7 @@ Exposify.prototype.setupShareFolders = function(sheet) {
     var section = this.getSectionTitle(sheet);
     var students = this.getStudents(sheet);
     var that = this;
-    var emails = this.students.filter(function(student) { return student.email; });
+    var emails = students.map(function(student) { return student.email; });
     var courseFolder = this.getCourseFolder(sheet);
     if (courseFolder === null) {
       var alert = this.alert({msg: ALERT_SETUP_SHARE_FOLDERS_MISSING_COURSE_FOLDER, title: 'Share Folders'});
@@ -2342,9 +2342,9 @@ Exposify.prototype.setupShareFolders = function(sheet) {
     students.forEach(function(student) {
       var name = that.getNameFirstLast(student.name);
       var email = student.email;
-      if (arrayContains(studentFolders, name)) {
+      if (that.arrayContains(studentFolders, name)) {
         var studentFolder = that.getFolder(name);
-        if (studentFolder.getAccess(email) !==  DriveApp.Permission.EDIT) {
+        if (studentFolder.getAccess(email) !== DriveApp.Permission.EDIT) {
           studentFolder.addEditor(email);
         }
       }
