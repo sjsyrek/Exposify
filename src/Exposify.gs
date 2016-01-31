@@ -39,11 +39,7 @@
 
 
 //TODO: rewrite functions for folder sharing, collecting and returning assignments
-//TODO: write warning roster functions
 //TODO: make error messages and alert windows more informative
-//TODO: revise comments
-//TODO: create nicer finish window for Create Folder Structure
-//TODO: add tab indexes to dialogs
 
 
 /**
@@ -96,17 +92,17 @@ var MIME_TYPE_GOOGLE_SHEET = 'application/vnd.google-apps.spreadsheet';
 /**
  * Default text to display for various alert messages throughout the application.
  */
-var ALERT_INSTALL_THANKS = 'Thanks for installing Exposify! Add a new section by selecting \"Setup New Expos Section\" in the Exposify menu.';
+var ALERT_INSTALL_THANKS = 'Thanks for installing Exposify! Add a section to your gradebook by selecting "Setup new Gradebook" in the Exposify "Setup" menu.';
 var ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS = 'New document files successfully created for the students in section $.';
-var ALERT_ADMIN_GENERATE_GRADEBOOK_SUCCESS = 'New gradebook file for "$" successfully created!';
-var ALERT_ADMIN_GENERATE_WARNING_ROSTER_SUCCESS = 'Warning roster for "$" successfully created!';
+var ALERT_ADMIN_GENERATE_GRADEBOOK_SUCCESS = 'New gradebook file for $ successfully created!';
+var ALERT_ADMIN_GENERATE_WARNING_ROSTER_SUCCESS = 'Warning roster for section $ successfully created!';
 var ALERT_ADMIN_NO_WARNINGS = 'There are no warnings to issue for this section!';
 var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. Do that before anything else.';
 var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '\'$\' successfully imported! You should double-check the spreadsheet to make sure it\'s correct.';
 var ALERT_SETUP_CREATE_CONTACTS_SUCCESS = 'New contact group successfully created for $.';
 var ALERT_SETUP_SHARE_FOLDERS_MISSING_COURSE_FOLDER = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command.';
-var ALERT_SETUP_SHARE_FOLDERS_MISSING_GRADED_FOLDER = 'There is no folder for graded papers for this course. Use the Create Folder Structure command to create one before executing this command.';
-var ALERT_SETUP_SHARE_FOLDERS_SUCCESS = 'The folders were successfully shared!';
+var ALERT_SETUP_SHARE_FOLDERS_MISSING_GRADED_FOLDER = 'The course folder was successfully shared, but there is no folder for graded papers for this course. Use the Create Folder Structure command to create one before executing this command again.';
+var ALERT_SETUP_SHARE_FOLDERS_SUCCESS = 'The course folders for section $ were successfully shared!';
 var ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS = 'A gradebook for section $ already exists. If you want to overwrite it, make it the active spreadsheet and try again.';
 var ALERT_SETUP_NEW_GRADEBOOK_SUCCESS = 'New gradebook created for $.';
 
@@ -120,8 +116,6 @@ var ERROR_SETUP_NEW_GRADEBOOK_FORMAT = 'There was a problem formatting the page.
 var ERROR_SETUP_ADD_STUDENTS = 'There was a problem reading the file.';
 var ERROR_SETUP_ADD_STUDENTS_EMPTY = 'I could not find any students in the file \"$\" for this section. Make sure you didn\'t modify it after downloading it from Sakai and that it\'s the correct section';
 var ERROR_SETUP_ADD_STUDENTS_INVALID = '\'$\' is not a valid CSV or Google Sheets file. Please try again.';
-var ERROR_SETUP_SHARE_FOLDERS = 'There was a problem sharing the folders. Please try again.';
-var ERROR_ASSIGNMENTS_CALC_WORD_COUNTS = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command.';
 
 /**
  * The COURSE_FORMATS object literal contains the basic data used to format Exposify gradebooks,
@@ -1713,8 +1707,9 @@ Exposify.prototype.getFirstDayOfSpringBreak = function(year) {
 
 
 /**
- * Get the specified folder for the gradebook on the active spreadsheet.
- * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated folder.
+ * Search for and return the subfolder, if one exists, if a given parent folder.
+ * @param {Folder} folder - The parent folder to search in.
+ * @param {string} name - The name of the folder we're looking for.
  */
 Exposify.prototype.getFolder = function(folder, name) {
   try {
@@ -2317,7 +2312,44 @@ Exposify.prototype.setupNewGradebook = function(sheet, courseInfo) {
  */
 Exposify.prototype.setupShareFolders = function(sheet) {
   try {
-
+    var section = this.getSectionTitle(sheet);
+    var students = this.getStudents(sheet);
+    var that = this;
+    var emails = this.students.filter(function(student) { return student.email; });
+    var courseFolder = this.getCourseFolder(sheet);
+    if (courseFolder === null) {
+      var alert = this.alert({msg: ALERT_SETUP_SHARE_FOLDERS_MISSING_COURSE_FOLDER, title: 'Share Folders'});
+      alert();
+      return;
+    }
+    courseFolder.setShareableByEditors(false);
+    var currentEditors = courseFolder.getEditors();
+    currentEditors.forEach(function(editor) {
+      if (that.arrayContains(emails, editor) === false) { courseFolder.removeEditor(editor); }
+    });
+    emails.forEach(function(email) {
+      if (that.arrayContains(currentEditors, email) === false) { courseFolder.addEditor(email); }
+    });
+    var gradedPapersFolder = this.getGradedPapersFolder(sheet);
+    if (gradedPapersFolder === null) {
+      var alert = this.alert({msg: ALERT_SETUP_SHARE_FOLDERS_MISSING_GRADED_FOLDER, title: 'Share Folders'});
+      alert();
+      return;
+    }
+    var subFolders = gradedPapersFolder.getFolders();
+    var studentFolders = [];
+    while (subFolders.hasNext()) { studentFolders.push(subFolders.next().getName()); }
+    students.forEach(function(student) {
+      var name = that.getNameFirstLast(student.name);
+      var email = student.email;
+      if (arrayContains(studentFolders, name)) {
+        var studentFolder = that.getFolder(name);
+        if (studentFolder.getAccess(email) !==  DriveApp.Permission.EDIT) {
+          studentFolder.addEditor(email);
+        }
+      }
+    });
+    spreadsheet.toast(ALERT_SETUP_SHARE_FOLDERS_SUCCESS.replace('$', section), TOAST_TITLE, TOAST_DISPLAY_TIME);
   } catch(e) { this.logError('Exposify.prototype.setupShareFolders', e); }
 } // end Exposify.prototype.setupShareFolders
 
