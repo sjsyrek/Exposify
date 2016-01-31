@@ -69,6 +69,7 @@ var YES_NO = 'yesNo';
 var PROMPT = 'prompt';
 
 var GRADED_PAPERS_FOLDER_NAME = 'Graded Papers'; // name of the folder for Graded Papers
+var GRADED_PAPER_PREFIX = '(Graded) '; // text to prepend to the filenames of graded papers (note the trailing space!)
 var ATTENDANCE_SHEET_COLUMN_WIDTH = 25; // width of columns in the attendance record part of the gradebook, 25 is the minimum recommended if you want all the dates to be visible
 var COLOR_BLANK = '#ffffff'; // #ffffff is white
 var COLOR_SHADED = '#ededed'; // #ededed is light grey, a nice color for contrast and also a pun on the purpose of this application
@@ -94,14 +95,21 @@ var MIME_TYPE_GOOGLE_SHEET = 'application/vnd.google-apps.spreadsheet';
  */
 var ALERT_INSTALL_THANKS = 'Thanks for installing Exposify! Add a section to your gradebook by selecting "Setup new Gradebook" in the Exposify "Setup" menu.';
 var ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS = 'New document files successfully created for the students in section $.';
+var ALERT_ASSIGNMENTS_COPY_SUCCESS = 'Successfully copied $ assignments!';
+var ALERT_ASSIGNMENTS_COPY_NOT_RETURNED = 'Some files could not be returned. Make sure student folders exist and try again:';
+var ALERT_ASSIGNMENTS_RETURN_SUCCESS = 'Successfully returned $ assignments!';
+var ALERT_ASSIGNMENTS_NOTHING_FOUND = 'No assignments with the name "$" were found in the course folder.';
+var ALERT_ASSIGNMENTS_NOTHING_RETURNED = 'No assignments were returned. Check your folder structure and try again.';
 var ALERT_ADMIN_GENERATE_GRADEBOOK_SUCCESS = 'New gradebook file for $ successfully created!';
 var ALERT_ADMIN_GENERATE_WARNING_ROSTER_SUCCESS = 'Warning roster for section $ successfully created!';
 var ALERT_ADMIN_NO_WARNINGS = 'There are no warnings to issue for this section!';
 var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. Do that before anything else.';
-var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '\'$\' successfully imported! You should double-check the spreadsheet to make sure it\'s correct.';
+var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '$ successfully imported! You should double-check the spreadsheet to make sure it is correct.';
 var ALERT_SETUP_CREATE_CONTACTS_SUCCESS = 'New contact group successfully created for $.';
-var ALERT_SETUP_SHARE_FOLDERS_MISSING_COURSE_FOLDER = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command.';
-var ALERT_SETUP_SHARE_FOLDERS_MISSING_GRADED_FOLDER = 'The course folder was successfully shared, but there is no folder for graded papers for this course. Use the Create Folder Structure command to create one before executing this command again.';
+var ALERT_MISSING_COURSE_FOLDER = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command.';
+var ALERT_MISSING_GRADED_FOLDER = 'There is no graded papers folder for this course. Use the Create Folder Structure command to create one before executing this command.';
+var ALERT_MISSING_GRADED_PAPER_FOLDERS = 'There are no graded paper folders for individual students in the main Graded Papers folder.';
+var ALERT_MISSING_SEMESTER_FOLDER = 'There is no semester folder for this section.';
 var ALERT_SETUP_SHARE_FOLDERS_SUCCESS = 'The course folders for section $ were successfully shared!';
 var ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS = 'A gradebook for section $ already exists. If you want to overwrite it, make it the active spreadsheet and try again.';
 var ALERT_SETUP_NEW_GRADEBOOK_SUCCESS = 'New gradebook created for $.';
@@ -907,7 +915,7 @@ Exposify.prototype.assignmentsCalcWordCountsGetTitle = function(sheet) {
   try {
     var courseTitle = this.getCourseTitle(sheet);
     var enrollment = this.getStudentCount(sheet);
-    var title = courseTitle + ' (' + enrollment + ' students)';
+    var title = courseTitle + '\n(' + enrollment + ' students)';
     return title;
   } catch(e) { this.logError('Exposify.prototype.assignmentsCalcWordCountsGetTitle', e); }
 } // end Exposify.prototype.assignmentsCalcWordCountsGetTitle
@@ -920,7 +928,33 @@ Exposify.prototype.assignmentsCalcWordCountsGetTitle = function(sheet) {
  */
 Exposify.prototype.assignmentsCopy = function(sheet, assignment) {
   try {
-
+    var spreadsheet = this.spreadsheet;
+    var courseFolder = this.getCourseFolder(sheet);
+    var semesterFolder = this.getSemesterFolder(sheet);
+    if (courseFolder === null) {
+      var alert = this.alert({msg: ALERT_MISSING_COURSE_FOLDER, title: 'Copy Assignments for Grading'});
+      alert();
+      return;
+    } else if (semesterFolder === null) {
+      var alert = this.alert({msg: ALERT_MISSING_SEMESTER_FOLDER, title: 'Copy Assignments for Grading'});
+      alert();
+      return;
+    }
+    var regex = '.+' + assignment.trim() + '.*'; // the filename contains the name of the assignment somewhere
+    var re = new RegExp(regex);
+    var type = 'application/vnd.google-apps.document';
+    var papers = this.getMatchedFiles(courseFolder, re, type);
+    if (papers.length === 0) {
+      var alert = this.alert({msg: ALERT_ASSIGNMENTS_NOTHING_FOUND.replace('$', assignment), title: 'Copy Assignments for Grading'});
+      alert();
+      return;
+    }
+    var number = 0;
+    papers.forEach(function(paper) {
+      paper.makeCopy(semesterFolder);
+      number += 1;
+      });
+    spreadsheet.toast(ALERT_ASSIGNMENTS_COPY_SUCCESS.replace('$', number), TOAST_TITLE, TOAST_DISPLAY_TIME);
   } catch(e) { this.logError('Exposify.prototype.assignmentsCopy', e); }
 } // end Exposify.prototype.assignmentsCopy
 
@@ -961,7 +995,59 @@ Exposify.prototype.assignmentsCreatePaperTemplates = function(sheet, assignment)
  */
 Exposify.prototype.assignmentsReturn = function(sheet, assignment) {
   try {
-
+    var spreadsheet = this.spreadsheet;
+    var semesterFolder = this.getSemesterFolder(sheet);
+    var gradedPapersFolder = this.getGradedPapersFolder(sheet);
+    if (semesterFolder === null) {
+      var alert = this.alert({msg: ALERT_MISSING_SEMESTER_FOLDER, title: 'Return Graded Assignments'});
+      alert();
+      return;
+    } else if (gradedPapersFolder === null) {
+      var alert = this.alert({msg: ALERT_MISSING_GRADED_FOLDER, title: 'Return Graded Assignments'});
+      alert();
+      return;
+    }
+    var section = this.getSectionTitle(sheet);
+    var regex = '.+' + assignment.trim() + '.*'; // the filename contains the name of the assignment somewhere
+    var re = new RegExp(regex);
+    var type = 'application/vnd.google-apps.document';
+    var papers = this.getMatchedFiles(semesterFolder, re, type);
+    if (papers.length === 0) {
+      var alert = this.alert({msg: ALERT_ASSIGNMENTS_NOTHING_FOUND.replace('$', assignment), title: 'Return Graded Assignments'});
+      alert();
+      return;
+    }
+    notMoved = [];
+    var that = this;
+    papers.forEach(function(paper) {
+      var re = new RegExp('Copy of');
+      var fileName = paper.getName();
+      if (fileName.match(re) !== null) {
+        var fileName = fileName.slice(8);
+      }
+      paper.setName(GRADED_PAPER_PREFIX + fileName);
+      var re = new RegExp(section);
+      var folderName = fileName.slice(0, fileName.match(re).index).trim();
+      var studentFolder = that.getFolder(gradedPapersFolder, folderName);
+      if (studentFolder === null) {
+        notMoved.push(paper);
+      } else {
+        studentFolder.addFile(paper);
+        semesterFolder.removeFile(paper);
+      }
+    });
+    if (notMoved.length > 0) {
+      var list = notMoved.map(function(file) { return file.getName() + '\n'; });
+      var text = ALERT_ASSIGNMENTS_COPY_NOT_RETURNED + '\n\n' + list.join('');
+      var alert = this.alert({msg: text, title: 'Return Graded Assignments'});
+      alert();
+    } else if (notMoved.length === papers.length) {
+      var alert = this.alert({msg: ALERT_ASSIGNMENTS_NOTHING_RETURNED, tite: 'Return Graded Assignments'});
+      alert();
+    } else if (notMoved.length < papers.length) {
+      var number = papers.length;
+      spreadsheet.toast(ALERT_ASSIGNMENTS_RETURN_SUCCESS.replace('$', number), TOAST_TITLE, TOAST_DISPLAY_TIME);
+    }
   } catch(e) { this.logError('Exposify.prototype.assignmentsReturn', e); }
 } // end Exposify.prototype.assignmentsReturn
 
@@ -1215,7 +1301,7 @@ Exposify.prototype.doMakeAlert = function(confirmation) {
       okCancel: function() { return (ui.alert(title, msg, okCancel)) === ok ? true : false; },
       yesNo: function() { return (ui.alert(title, msg, yesNo)) === yes ? true : false; },
       prompt: function() {
-        var response = ui.prompt(title, msg, okCancel);
+        var response = ui.prompt(title, msg + '\n\n', okCancel);
         return response.getSelectedButton() === prompt ? response.getResponseText() : false;
       }
     };
@@ -1781,6 +1867,30 @@ Exposify.prototype.getLastDayOfMonth = function(month, year) {
 
 
 /**
+ * Search a given folder for a file matching the given regular expression and, optionally, with a specific MIME type.
+ * @param  {Folder} folder - A Folder object.
+ * @param  {RegExp} re - A RegExp object.
+ * @param  {string=} type - A file MIME type to optionally select for.
+ */
+Exposify.prototype.getMatchedFiles = function(folder, re, type) {
+  try {
+    var filesIter = folder.getFiles();
+    var filtered = [];
+    while (filesIter.hasNext()) {
+      var file = filesIter.next();
+      var match = file.getName().match(re);
+      if (type === undefined && match !== null) {
+        filtered.push(file);
+      } else if (match !== null && file.getMimeType() === type) {
+        filtered.push(file);
+      }
+    }
+    return filtered;
+  } catch(e) { this.logError('Exposify.prototype.getMatchedFiles', e); }
+} // end Exposify.prototype.getMatchedFiles
+
+
+/**
  * Switch a name from "last, first" to "first last" order.
  * @param {string} name - A name in last, first order.
  * @return {string} newName - The name in first last order.
@@ -2318,7 +2428,7 @@ Exposify.prototype.setupShareFolders = function(sheet) {
     var emails = students.map(function(student) { return student.email; });
     var courseFolder = this.getCourseFolder(sheet);
     if (courseFolder === null) {
-      var alert = this.alert({msg: ALERT_SETUP_SHARE_FOLDERS_MISSING_COURSE_FOLDER, title: 'Share Folders'});
+      var alert = this.alert({msg: ALERT_MISSING_COURSE_FOLDER, title: 'Share Folders'});
       alert();
       return;
     }
@@ -2332,11 +2442,16 @@ Exposify.prototype.setupShareFolders = function(sheet) {
     });
     var gradedPapersFolder = this.getGradedPapersFolder(sheet);
     if (gradedPapersFolder === null) {
-      var alert = this.alert({msg: ALERT_SETUP_SHARE_FOLDERS_MISSING_GRADED_FOLDER, title: 'Share Folders'});
+      var alert = this.alert({msg: ALERT_MISSING_GRADED_FOLDER, title: 'Share Folders'});
       alert();
       return;
     }
     var subFolders = gradedPapersFolder.getFolders();
+    if (subFolders === null) {
+      var alert = this.alert({msg: ALERT_MISSING_GRADED_PAPER_FOLDERS, title: 'Share Folders'});
+      alert();
+      return;
+    }
     var studentFolders = [];
     while (subFolders.hasNext()) { studentFolders.push(subFolders.next().getName()); }
     students.forEach(function(student) {
@@ -2344,11 +2459,12 @@ Exposify.prototype.setupShareFolders = function(sheet) {
       var email = student.email;
       if (that.arrayContains(studentFolders, name)) {
         var studentFolder = that.getFolder(name);
-        if (studentFolder.getAccess(email) !== DriveApp.Permission.EDIT) {
-          studentFolder.addEditor(email);
-        }
+        studentFolder.addEditor(email);
       }
+      Utilities.sleep(100); // to avoid quota exceptions
     });
+    var currentEditors = gradedPapersFolder.getEditors();
+    currentEditors.forEach(function(editor) { gradedPapersFolder.removeEditor(editor); });
     spreadsheet.toast(ALERT_SETUP_SHARE_FOLDERS_SUCCESS.replace('$', section), TOAST_TITLE, TOAST_DISPLAY_TIME);
   } catch(e) { this.logError('Exposify.prototype.setupShareFolders', e); }
 } // end Exposify.prototype.setupShareFolders
