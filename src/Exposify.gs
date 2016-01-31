@@ -2065,7 +2065,7 @@ Exposify.prototype.logError = function(callingFunction, traceback) {
     var info = [timestamp, email, id, callingFunction, traceback];
     var lastRow = errorLogSheet.getLastRow();
     var pasteRange = errorLogSheet.getRange((lastRow + 1), 1, 1, 5);
-    if (sheet.getMaxRows() === lastRow) {
+    if (errorLogSheet.getMaxRows() === lastRow) {
       errorLogSheet.insertRowAfter(lastRow);
     }
     pasteRange.setValues([info]);
@@ -2095,7 +2095,7 @@ Exposify.prototype.logInstall = function() {
     var info = [timestamp, email, id];
     var lastRow = installLogSheet.getLastRow();
     var pasteRange = installLogSheet.getRange((lastRow + 1), 1, 1, 3);
-    if (sheet.getMaxRows() === lastRow) {
+    if (installLogSheet.getMaxRows() === lastRow) {
       errorLogSheet.insertRowAfter(lastRow);
     }
     pasteRange.setValues([info]);
