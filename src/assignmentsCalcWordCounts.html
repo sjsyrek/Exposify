@@ -20,6 +20,7 @@ Modal dialog box for Exposify.gs called from assignmentsCalcWordCounts() -->
   </div>
   <div id='inner' class='inner'></div>
 </div>
+
 <script src='//ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>
     <script>
       $( document ).ready(function() {
@@ -34,6 +35,7 @@ Modal dialog box for Exposify.gs called from assignmentsCalcWordCounts() -->
           google.script.run.withSuccessHandler(showCounts).assignmentsCalcWordCountsCallback(params);
           }); // end click
       }); // end ready()
+      
       function makeTitle(title) {
         if (title !== $('#title').text()) {
           var title = '<div id=\'title\' class=\'title\'>' + title + '</div>';
@@ -42,7 +44,8 @@ Modal dialog box for Exposify.gs called from assignmentsCalcWordCounts() -->
         if (!$('#main').is(':visible')) {
           $('#main').show();
         }
-      } // end makeTitle()  
+      } // end makeTitle()
+      
       function showCounts(counts) {
         google.script.run.withSuccessHandler(makeTitle).assignmentsCalcWordCountsCallbackGetTitle();
         $('#counting').remove();

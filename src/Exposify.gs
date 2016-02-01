@@ -10,9 +10,8 @@
  * of tasks related to the teaching of expository writing courses. Key features
  * include automatic setup of grade books, attendance records, and folder
  * hierarchies in Google Drive for organizing course sections and the return of
- * graded assignments; batch word counts of student assignments; differential
- * comparison of paper drafts (e.g. rough versus final); and various formatting
- * and administrative tasks.
+ * graded assignments; batch word counts of student assignments; and various
+ * formatting and administrative tasks.
  * @author steven.syrek@gmail.com (Steven Syrek)
  */
 
@@ -37,7 +36,6 @@
  * and "Errors" in your spreadsheet).
  */
 
-
 /**
  * Create an interface to the Exposify framework without polluting the global namespace,
  * in the event other scripts are attached to this spreadsheet or Exposify's functionality
@@ -49,9 +47,7 @@
   this.expos = expos;
 })(); // end self-executing anonymous function
 
-
 // CONSTANTS
-
 
 var EMAIL_DOMAIN = '@scarletmail.rutgers.edu'; // default email domain for students
 var STYLESHEET = 'Stylesheet.html'; // can't include a css stylesheet, so we put styles here and concatenate the html pages later
@@ -85,41 +81,42 @@ var EMAIL_REGEX = /^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"
 
 var MIME_TYPE_CSV = 'text/csv'; // file MIME types for reading file data
 var MIME_TYPE_GOOGLE_SHEET = 'application/vnd.google-apps.spreadsheet';
+var MIME_TYPE_GOOGLE_DOC = 'application/vnd.google-apps.document'
 
 /**
  * Default text to display for various alert messages throughout the application.
  */
-var ALERT_INSTALL_THANKS = 'Thanks for installing Exposify! Add a section to your gradebook by selecting "Setup new Gradebook" in the Exposify "Setup" menu.';
+var ALERT_INSTALL_THANKS = 'Thanks for installing Exposify! To get started, add a section to your gradebook by selecting "Setup new Gradebook" in the Exposify "Setup" menu.';
 var ALERT_ASSIGNMENTS_CREATE_TEMPLATES_SUCCESS = 'New document files successfully created for the students in section $.';
-var ALERT_ASSIGNMENTS_COPY_SUCCESS = 'Successfully copied $ assignments!';
-var ALERT_ASSIGNMENTS_COPY_NOT_RETURNED = 'Some files could not be returned. Make sure student folders exist and try again:';
+var ALERT_ASSIGNMENTS_COPY_SUCCESS = 'Successfully copied $ assignments for grading into the semester folder!';
+var ALERT_ASSIGNMENTS_COPY_NOT_RETURNED = 'Some files could not be returned. Make sure all students have their own folders for graded papers and try again:';
 var ALERT_ASSIGNMENTS_RETURN_SUCCESS = 'Successfully returned $ assignments!';
 var ALERT_ASSIGNMENTS_NOTHING_FOUND = 'No assignments with the name "$" were found in the course folder.';
-var ALERT_ASSIGNMENTS_NOTHING_RETURNED = 'No assignments were returned. Check your folder structure and try again.';
+var ALERT_ASSIGNMENTS_NOTHING_RETURNED = 'No assignments were returned. Make sure you have individual folders for your students and try again.';
 var ALERT_ADMIN_GENERATE_GRADEBOOK_SUCCESS = 'New gradebook file for $ successfully created in My Drive!';
 var ALERT_ADMIN_GENERATE_WARNING_ROSTER_SUCCESS = 'Warning roster for section $ successfully created in My Drive!';
 var ALERT_ADMIN_NO_WARNINGS = 'There are no warnings to issue for this section!';
-var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. Do that before anything else.';
-var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '$ successfully imported! You should double-check the spreadsheet to make sure it is correct.';
-var ALERT_SETUP_CREATE_CONTACTS_SUCCESS = 'New contact group successfully created for $.';
-var ALERT_MISSING_COURSE_FOLDER = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command.';
-var ALERT_MISSING_GRADED_FOLDER = 'There is no graded papers folder for this course. Use the Create Folder Structure command to create one before executing this command.';
-var ALERT_MISSING_GRADED_PAPER_FOLDERS = 'There are no graded paper folders for individual students in the main Graded Papers folder.';
-var ALERT_MISSING_SEMESTER_FOLDER = 'There is no semester folder for this section.';
+var ALERT_NO_GRADEBOOK = 'You have not set up a gradebook yet for this sheet. You need to do that before Exposify can help with anything else.';
+var ALERT_SETUP_ADD_STUDENTS_SUCCESS = '$ successfully imported! You might want to double-check the spreadsheet to make sure it is correct.';
+var ALERT_SETUP_CREATE_CONTACTS_SUCCESS = 'New contact group successfully created for $!';
+var ALERT_MISSING_COURSE_FOLDER = 'There is no course folder for this course. Use the Create Folder Structure command to create one before executing this command again.';
+var ALERT_MISSING_GRADED_FOLDER = 'There is no graded papers folder for this course. Use the Create Folder Structure command to create one before executing this command again.';
+var ALERT_MISSING_GRADED_PAPER_FOLDERS = 'There are no graded paper folders for individual students in the main graded papers folder. Use the Create Folder Structure command to create one before executing this command again.';
+var ALERT_MISSING_SEMESTER_FOLDER = 'There is no semester folder for this section. Use the Create Folder Structure command to create one before executing this command again.';
 var ALERT_SETUP_SHARE_FOLDERS_SUCCESS = 'The course folders for section $ were successfully shared!';
 var ALERT_SETUP_NEW_GRADEBOOK_ALREADY_EXISTS = 'A gradebook for section $ already exists. If you want to overwrite it, make it the active spreadsheet and try again.';
-var ALERT_SETUP_NEW_GRADEBOOK_SUCCESS = 'New gradebook created for $.';
+var ALERT_SETUP_NEW_GRADEBOOK_SUCCESS = 'New gradebook created for $!';
 
 var TOAST_DISPLAY_TIME = 10; // how long should the little toast window linger before disappearing
 var TOAST_TITLE = 'Success!' // toast window title
 
-var ERROR_INSTALL = 'There was a problem with installation. Please try again.';
-var ERROR_FORMAT_SET_SHADED_ROWS = 'There was a problem formatting the sheet. Please try again.';
-var ERROR_FORMAT_SWITCH_STUDENT_NAMES = 'There was a problem formatting the sheet. Please try again.';
-var ERROR_SETUP_NEW_GRADEBOOK_FORMAT = 'There was a problem formatting the page. Try again.';
-var ERROR_SETUP_ADD_STUDENTS = 'There was a problem reading the file.';
-var ERROR_SETUP_ADD_STUDENTS_EMPTY = 'I could not find any students in the file \"$\" for this section. Make sure you didn\'t modify it after downloading it from Sakai and that it\'s the correct section';
-var ERROR_SETUP_ADD_STUDENTS_INVALID = '\'$\' is not a valid CSV or Google Sheets file. Please try again.';
+var ERROR_INSTALL = 'There was a problem installing Exposify. I don\'t know why. I\'m sorry. Please try again.';
+var ERROR_FORMAT_SET_SHADED_ROWS = 'There was a problem formatting the sheet. Probably somewhere in the "cloud." These things happen sometimes. Please try again.';
+var ERROR_FORMAT_SWITCH_STUDENT_NAMES = 'There was a problem formatting the sheet. Sorry about that. Please try again. It will probably work eventually!';
+var ERROR_SETUP_NEW_GRADEBOOK_FORMAT = 'There was a problem formatting the page. The cloud gods are against us today. Please try again with a supplicatory attitude.';
+var ERROR_SETUP_ADD_STUDENTS = 'There was a problem reading the file. I\'m sure it was a fluke, and it\'ll work if you try a second (or third?) time.';
+var ERROR_SETUP_ADD_STUDENTS_EMPTY = 'I could not find any students in the file "$" for this section. Make sure you didn\'t modify it after downloading it from Sakai and that it\'s the correct section.';
+var ERROR_SETUP_ADD_STUDENTS_INVALID = '"$" is not a valid CSV or Google Sheets file. Please try again with a file that has one of those two formats.';
 
 /**
  * The COURSE_FORMATS object literal contains the basic data used to format Exposify gradebooks,
@@ -318,7 +315,7 @@ var SUMMER_SESSIONS = {
 var DIALOG_SETUP_NEW_GRADEBOOK = {
   alert: {
     alertType: YES_NO,
-    msg: 'This will replace all data on this sheet. Are you sure you wish to proceed?',
+    msg: 'This will replace all data on this sheet with a new gradebook. Are you sure you wish to proceed?',
     title: 'Setup New Gradebook'
   },
   dialog: {
@@ -327,12 +324,12 @@ var DIALOG_SETUP_NEW_GRADEBOOK = {
     width: 525,
     height: 450
   },
-  error_msg: 'There was a problem with the setup process. Please try again.'
+  error_msg: 'There was a problem with the setup process. It could be a problem with the code, but it\'s probably a server issue. Please try again and see if it works eventually.'
 };
 var DIALOG_SETUP_ADD_STUDENTS = {
   alert: {
     alertType: YES_NO,
-    msg: 'This will replace any students currently listed in this gradebook. Are you sure you wish to proceed?',
+    msg: 'This will replace any students currently listed in this gradebook with a new student roster. Are you sure you wish to proceed?',
     title: 'Add Students to Section'
   },
   dialog: {
@@ -341,7 +338,7 @@ var DIALOG_SETUP_ADD_STUDENTS = {
     width: 800,
     height: 600
   },
-  error_msg: 'There was a problem accessing your Drive. Please try again.'
+  error_msg: 'There was a problem accessing your Drive account. These things happen! Please try again.'
 };
 var DIALOG_SETUP_CREATE_CONTACTS = {
   alert: {
@@ -350,7 +347,7 @@ var DIALOG_SETUP_CREATE_CONTACTS = {
     title: 'Create Contact Group'
   },
   command: 'setupCreateContacts',
-  error_msg: 'Unable to access contacts. Please try again.'
+  error_msg: 'Unable to access contacts. For some reason. I don\'t know why. Please try again. It might work! Eventually!'
 };
 var DIALOG_SETUP_CREATE_FOLDER_STRUCTURE = {
   alert: {
@@ -359,66 +356,66 @@ var DIALOG_SETUP_CREATE_FOLDER_STRUCTURE = {
     title: 'Create Folder Structure'
   },
   command: 'setupCreateFolderStructure',
-  error_msg: 'There was a problem creating the folder structure. Please try again.'
+  error_msg: 'There was a problem creating the folder structure. I know that\'s vague, but it might work if you try again. Sometimes the server is just slow. Please try again. Please.'
 };
 var DIALOG_SETUP_SHARE_FOLDERS = {
   alert: {
     alertType: YES_NO,
-    msg: 'This command will share your course folder with all students in this section, and the folders in your graded papers folder with each individual student, respectively. Do you wish to proceed?',
-    title: 'Share folders with students'
+    msg: 'This command will share your course folder with all students in this section, and the student folders in your graded papers folder with each individual student, respectively. Do you wish to proceed?',
+    title: 'Share Folders With Students'
   },
   command: 'setupShareFolders',
-  error_msg: 'There was a problem sharing the folders. Please try again.'
+  error_msg: 'There was a problem sharing the folders. Sometimes the server doesn\'t like to share. Please try again.'
 };
 var DIALOG_ASSIGNMENTS_CREATE_TEMPLATES = {
   alert: {
     alertType: PROMPT,
-    msg: 'This will create a blank document for each of the students in the current gradebook, based on a paper template designed to look nicer than the MLA format. If this is what you wish to do, enter the name of this assignment (each file will be named "Student Name [section] - Assignment Name"):',
+    msg: 'This will create a blank document for each of the students in the current gradebook, based on a paper template designed to look nicer than the MLA format. If this is what you wish to do, enter the name of this assignment (each file will be named "Student Name [section] - Assignment Name", so if you enter "Assignment 1" and you have section AB then each filename will be "Student Name AB - Assignment 1):',
     title: 'Create Paper Templates'
   },
   command: 'assignmentsCreatePaperTemplates',
-  error_msg: 'Unable to create new files. Please try again.'
+  error_msg: 'Unable to create new files. It could be the weather. Please try again.'
 };
 var DIALOG_ASSIGNMENTS_COPY = {
   alert: {
     alertType: PROMPT,
-    msg: 'This will copy a set of assignments into the root course folder (not shared with students) for private commenting and grading. What is the name of the assignment?',
+    msg: 'This will copy a set of assignments into the semester folder (not shared with students) for private commenting and grading. What is the name of the assignment I should look for? For example, if you enter "Assignment 1" then I will copy every document with a filename which contains that phrase, such as "Student Name AB - Assignment 1".',
     title: 'Copy Assignments for Grading'
   },
   command: 'assignmentsCopy',
-  error_msg: 'Unable to copy assignments. Please try again.'
+  error_msg: 'Unable to copy assignments. It was probably the ionosphere. Please try again.'
 };
 var DIALOG_ASSIGNMENTS_RETURN = {
   alert: {
     alertType: PROMPT,
-    msg: 'This will return a set of graded assignments to students in their private folders. What is the name of the assignment?',
+    msg: 'This will return a set of graded assignments to students in their private folders. What is the name of the assignment? For example, if you enter "Assignment 1" then I will move every document with a filename which contains that phrase, such as "Student Name AB - Assignment 1".',
     title: 'Return Graded Assignments'
   },
   command: 'assignmentsReturn',
-  error_msg: 'Unable to return assignments. Please try again.'
+  error_msg: 'Unable to return assignments. Are you sure you paid your taxes this year? Please try again.'
 };
 var DIALOG_ADMIN_WARNING_ROSTER = {
   alert: {
     alertType: YES_NO,
-    msg: 'This will generate a warning roster for this section. Is that what you want to do?',
+    msg: 'This will generate a warning roster for this section and place it in your root "My Drive" folder. Is that what you want to do?',
     title: 'Generate Warning Roster'
   },
   dialog: {
     title: 'Generate Warning Roster',
     html: 'adminWarningRoster.html',
-    width: 525,
-    height: 450
+    width: 600,
+    height: 800
   },
-  error_msg: 'There was a problem. Please try again.'
+  error_msg: 'There was a problem. I\'m sorry about that. It wasn\'t my fault. Or maybe it was. I can\'t tell from here. Please try again.'
 };
 var DIALOG_ADMIN_GRADEBOOK = {
   alert: {
     alertType: YES_NO,
-    msg: 'This will create a separate gradebook file from the relevant data on this sheet as another Google Sheets file that you can download in Excel or another format for submission to the appropriate authorities. The file will be placed in your root Drive folder. Is that what you want to do?',
+    msg: 'This will create a separate gradebook file from the relevant data on this sheet as another Google Sheets file that you can download in Excel or another format for submission to the appropriate authorities. The file will be placed in your root "My Drive" folder. Is that what you want to do?',
     title: 'Generate Final Gradebook'
   },
   command: 'adminGenerateGradebook',
-  error_msg: 'There was a problem. Please try again.'
+  error_msg: 'There was a problem. If I had more information, I would tell you, but it was probably the server. Or possibly God. Certainly one of those two. Please try again.'
 };
 
 /**
@@ -436,9 +433,9 @@ var SIDEBAR_HELP = {
 /**
  * Toggles for whether or not I am tracking errors and installs and the names of the associated spreadsheets.
  */
-var ERROR_TRACKING = true; // determines whether errors are sent to the error tracking spreadsheet
+var ERROR_TRACKING = true; // determines whether errors are sent to the error tracking spreadsheet (specified as the script property LOG_FILE_ID)
 var ERROR_TRACKING_SHEET_NAME = 'Errors';
-var INSTALL_TRACKING = true; // determine whether errors are sent to the install tracking spreadsheet
+var INSTALL_TRACKING = true; // determine whether errors are sent to the install tracking spreadsheet (specified as the script property LOG_FILE_ID)
 var INSTALL_TRACKING_SHEET_NAME = 'Installs';
 
 /**
@@ -457,9 +454,7 @@ var TEMPLATE_WORKS_CITED = {
   info: '5th ed. Stamford, CT: Cengage, 2015. 105–128. Print.'
 };
 
-
 // TRIGGER FUNCTIONS
-
 
 /**
  * Execute as a trigger whenever the application is installed as an add-on to a Google Spreadsheet.
@@ -476,11 +471,10 @@ function onInstall(e) {
   }
 } // end onInstall
 
-
 /**
  * Execute as a trigger whenever the attached Google Spreadsheet is opened. Add the custom
  * Exposify menu to the menu bar. Menu commands call the specified function, which passes control
- * to the command handler function.
+ * to the command handler function, Exposify.prototype.executeMenuCommand.
  */
 function onOpen() {
   var ui = expos.ui;
@@ -512,9 +506,7 @@ function onOpen() {
   }
 } // end onOpen
 
-
 // CONSTRUCTORS
-
 
 /**
  * When a user sets up a new gradebook, there are various options that can be selected to customize it.
@@ -537,7 +529,6 @@ function Course(courseInfo) {
   this.gradeValidations = expos.doMakeGradeValidations(courseInfo.course); // this is complicated, so I do the work in a separate function; initialized to a GradeValidationSet
 }; // end Course
 
-
 /**
  * Constructs a set of grade validations for use by the Course constructor. Grade validations are simply
  * spreadsheet data validations that are defined according to the COURSE_FORMATS templstes. For example,
@@ -550,7 +541,6 @@ function GradeValidationSet() {
   this.ranges = [];
 }; // end GradeValidationSet
 
-
 /**
  * A simple student record, containing the student's name and netid, which can be computed into
  * a valid email address. Assumes all emails have the same domain, but this can be modified for edge
@@ -562,7 +552,6 @@ function Student(name, netid) {
   this.netid = netid;
   this.email = (EMAIL_REGEX.test(netid + EMAIL_DOMAIN) === true ? netid + EMAIL_DOMAIN : ''); // make sure the email address is valid
 }; // end Student
-
 
 /**
  * Constructor for a course format, which describes how to reformat the spreadsheet to create a new, blank gradebook.
@@ -587,7 +576,6 @@ function Format(course) {
   this.setColumnWidths = function(sheet) {this.columns.map(function(column, index) { sheet.setColumnWidth(index + 1, this.columns[index]); }, this); } // set column widths
   this.shadedRows = false;
 } // end Format
-
 
 /**
  * The main Exposify constructor, a namespace for most (but not all) of the methods and properties of the add-on. This is probably overkill, but it seemed like a good idea at the time.
@@ -691,9 +679,7 @@ function Exposify() {
   spreadsheet_.setSpreadsheetTimeZone(TIMEZONE); // sets the default time zone to the value stored by TIMEZONE
 }; //end Exposify
 
-
 // MENU COMMANDS
-
 
 /**
  * Since menu commands have to call functions in the global namespace, I can't call methods defined on
@@ -719,9 +705,7 @@ function exposifyFormatSwitchStudentNames() { expos.checkSheetStatus.call(expos,
 function exposifyFormatSetShadedRows() { expos.checkSheetStatus.call(expos, {command: 'formatSetShadedRows', error_msg: ERROR_FORMAT_SET_SHADED_ROWS}); }
 function exposifyHelp() { expos.executeMenuCommand.call(expos, {command: 'help'}); }
 
-
 // CALLBACKS
-
 
 /**
  * As with the menu commands, callbacks from user interfaces (from the client side) that use the
@@ -737,13 +721,11 @@ function setupAddStudentsCallback(id) { expos.setupAddStudents(expos.sheet, id);
 function adminGenerateWarningRosterCallback(warnings) { expos.adminGenerateWarningRoster(warnings); }
 function adminGenerateWarningRosterCallbackGetStudents() { return expos.adminGenerateWarningRosterGetStudents(expos.sheet); }
 
-
 // EXPOSIFY FUNCTIONS
-
 
 /**
  * Generate a warning roster based on information collected from the user about which students should receive which warning.
- * @param  {Object} warnings - An object containing arrays of objects corresponding to the three warning codes.
+ * @param {Object} warnings - An object containing arrays of objects corresponding to the three warning codes.
  */
 Exposify.prototype.adminGenerateWarningRoster = function(warnings) {
   try {
@@ -766,6 +748,9 @@ Exposify.prototype.adminGenerateWarningRoster = function(warnings) {
     if (instructor === null) {
       var email = spreadsheet.getOwner().getEmail();
       var instructor = ContactsApp.getContact(email).getFullName();
+    }
+    if (instructor === null) {
+      var instructor = '';
     }
     var course = '01:355:' + this.getCourseNumber(sheet) + ':' + section;
     var title = this.getCourseTitle(sheet) + ' - Warnings Roster - ' + semester;
@@ -803,10 +788,9 @@ Exposify.prototype.adminGenerateWarningRoster = function(warnings) {
   } catch(e) { this.logError('Exposify.prototype.adminGenerateWarningRoster', e); }
 } // end Exposify.prototype.adminGenerateWarningRoster
 
-
 /**
  * Retrieve the names and ids of the students in this section, used as a callback to client-side code.
- * @param  {Sheet} sheet - The active Sheet object.
+ * @param {Sheet} sheet - The active Sheet object.
  * @return {Array} students - An array of Student objects.
  */
 Exposify.prototype.adminGenerateWarningRosterGetStudents = function(sheet) {
@@ -825,7 +809,6 @@ Exposify.prototype.adminGenerateWarningRosterGetStudents = function(sheet) {
     return students;
   } catch(e) { this.logError('Exposify.prototype.adminGenerateWarningRosterGetStudents', e); }
 } // end Exposify.prototype.adminGenerateWarningRosterGetStudents
-
 
 /**
  * Check that an incoming request to make an alert has the correct parameters and raise an
@@ -853,7 +836,6 @@ Exposify.prototype.alert = function(confirmation) {
   } catch(e) { this.logError('Exposify.prototype.alert', e); }
 } // end Exposify.prototype.alert
 
-
 /**
  * Check whether an array contains a specified item. Modified code from http://stackoverflow.com/a/237176.
  * @param {Array} arr - The array to check.
@@ -874,7 +856,6 @@ Exposify.prototype.arrayContains = function(arr, item) {
     return false;
   } catch(e) {this.logError('Exposify.prototype.arrayContains', e); }
 } // end Exposify.prototype.arrayContains
-
 
 /**
  * Return word counts for the set of files specified by the user.
@@ -906,7 +887,6 @@ Exposify.prototype.assignmentsCalcWordCounts = function(sheet, params) {
   } catch(e) { this.logError('Exposify.prototype.assignmentsCalcWordCounts', e); }
 } // end Exposify.prototype.assignmentsCalcWordCounts
 
-
 /**
  * Retrieve the title of the course and number of students enrolled for use in the
  * word counts sidebar.
@@ -921,7 +901,6 @@ Exposify.prototype.assignmentsCalcWordCountsGetTitle = function(sheet) {
     return title;
   } catch(e) { this.logError('Exposify.prototype.assignmentsCalcWordCountsGetTitle', e); }
 } // end Exposify.prototype.assignmentsCalcWordCountsGetTitle
-
 
 /**
  * Copy student assignments from the course folder to the semester folder for private grading.
@@ -944,7 +923,7 @@ Exposify.prototype.assignmentsCopy = function(sheet, assignment) {
     }
     var regex = '.+' + assignment.trim() + '.*'; // the filename contains the name of the assignment somewhere
     var re = new RegExp(regex);
-    var type = 'application/vnd.google-apps.document';
+    var type = MIME_TYPE_GOOGLE_DOC;
     var papers = this.getMatchedFiles(courseFolder, re, type);
     if (papers.length === 0) {
       var alert = this.alert({msg: ALERT_ASSIGNMENTS_NOTHING_FOUND.replace('$', assignment), title: 'Copy Assignments for Grading'});
@@ -959,7 +938,6 @@ Exposify.prototype.assignmentsCopy = function(sheet, assignment) {
     spreadsheet.toast(ALERT_ASSIGNMENTS_COPY_SUCCESS.replace('$', number), TOAST_TITLE, TOAST_DISPLAY_TIME);
   } catch(e) { this.logError('Exposify.prototype.assignmentsCopy', e); }
 } // end Exposify.prototype.assignmentsCopy
-
 
 /**
  * Create Google Docs files for students to use as templates for their assignments.
@@ -989,11 +967,10 @@ Exposify.prototype.assignmentsCreatePaperTemplates = function(sheet, assignment)
   } catch(e) { this.logError('Exposify.prototype.assignmentsCreatePaperTemplates', e); }
 } // end Exposify.prototype.assignmentsCreatePaperTemplates
 
-
 /**
  * Return student assignments from the semester folder to their individual, private folders for review.
- * @param  {Sheet} sheet - The sheet object.
- * @param  {string} assignment - The name of the assignment to filter for.
+ * @param {Sheet} sheet - The sheet object.
+ * @param {string} assignment - The name of the assignment to filter for.
  */
 Exposify.prototype.assignmentsReturn = function(sheet, assignment) {
   try {
@@ -1012,7 +989,7 @@ Exposify.prototype.assignmentsReturn = function(sheet, assignment) {
     var section = this.getSectionTitle(sheet);
     var regex = '.+' + assignment.trim() + '.*'; // the filename contains the name of the assignment somewhere
     var re = new RegExp(regex);
-    var type = 'application/vnd.google-apps.document';
+    var type = MIME_TYPE_GOOGLE_DOC;
     var papers = this.getMatchedFiles(semesterFolder, re, type);
     if (papers.length === 0) {
       var alert = this.alert({msg: ALERT_ASSIGNMENTS_NOTHING_FOUND.replace('$', assignment), title: 'Return Graded Assignments'});
@@ -1053,7 +1030,6 @@ Exposify.prototype.assignmentsReturn = function(sheet, assignment) {
   } catch(e) { this.logError('Exposify.prototype.assignmentsReturn', e); }
 } // end Exposify.prototype.assignmentsReturn
 
-
 /**
  * Check whether a gradebook has already been set up for this sheet. If so, pass
  * control to the {@code executeMenuCommand()} function. Return false otherwise.
@@ -1072,7 +1048,6 @@ Exposify.prototype.checkSheetStatus = function(params) {
     }
   } catch(e) { this.logError('Exposify.prototype.checkSheetStatus', e); }
 } // end Exposify.prototype.checkSheetStatus
-
 
 /**
  * Create a dialog box to display to the user using information stored as a template an object literal
@@ -1096,7 +1071,6 @@ Exposify.prototype.createHtmlDialogFromFile = function(dialog) {
   } catch(e) { this.logError('Exposify.prototype.createHtmlDialogFromFile', e); }
 } // end Exposify.prototype.createHtmlDialogFromFile
 
-
 /**
  * Create a dialog box to display to the user using information stored as a template an object literal
  * constant. The html field of the argument object should be raw HTML.
@@ -1119,7 +1093,6 @@ Exposify.prototype.createHtmlDialogFromText = function(dialog) {
   } catch(e) { this.logError('Exposify.prototype.createHtmlDialogFromText', e); }
 } // end Exposify.prototype.createHtmlDialogFromText
 
-
 /**
  * Insert student names into the spreadsheet.
  * @param {Object} params - Object containing the function parameters.
@@ -1138,7 +1111,6 @@ Exposify.prototype.doAddStudents = function (params) {
     range.setValues(studentList); // set the value of the whole range at once, so I don't call the API more than necessary
   } catch(e) { this.logError('Exposify.prototype.doAddStudents', e); }
 } // end Exposify.prototype.doAddStudents
-
 
 /**
  * Generate a regular expression for counting the words of all the documents in a course folder.
@@ -1165,7 +1137,6 @@ Exposify.prototype.doCalcWordCountsAll = function(sheet, filter) {
   } catch(e) { this.logError('Exposify.prototype.doCalcWordCountsAll', e); }
 } // end Exposify.prototype.doCalcWordCountsAll
 
-
 /**
  * Generate a regular expression for counting the words of a specific student's documents.
  * @param {Sheet} sheet - A Google Apps Sheet object containing the gradebook to check.
@@ -1185,7 +1156,6 @@ Exposify.prototype.doCalcWordCountsSelected = function(sheet, filter) {
   } catch(e) { this.logError('Exposify.prototype.doCalcWordCountsSelected', e); }
 } // end Exposify.prototype.doCalcWordCountsSelected
 
-
 /**
  * Format a spreadsheet sheet for use as a gradebook for a specified course.
  * @param {Object} newCourse - Information about the new course on which to base the formatting.
@@ -1201,7 +1171,6 @@ Exposify.prototype.doFormatSheet = function(newCourse) {
     return true
   } catch(e) { this.logError('Exposify.prototype.doFormatSheet', e); }
 } // end Exposify.prototype.doFormatSheet
-
 
 /**
  * Add an attendance record to a newly formatted gradebook.
@@ -1242,7 +1211,6 @@ Exposify.prototype.doFormatSheetAddAttendanceRecord = function(course, sheet) {
   } catch(e) { this.logError('Exposify.prototype.doFormatSheetAddAttendanceRecord', e); }
 } // end Exposify.prototype.doFormatSheetAddAttendanceRecord
 
-
 /**
  * Create a new Google Sheets file using only the gradebook portion of the active sheet,
  * for downloading in another format.
@@ -1275,7 +1243,6 @@ Exposify.prototype.doGenerateGradebook = function(sheet) {
     spreadsheet.toast(ALERT_ADMIN_GENERATE_GRADEBOOK_SUCCESS.replace('$', title), TOAST_TITLE, TOAST_DISPLAY_TIME);
   } catch(e) { this.logError('Exposify.prototype.doGenerateGradebook', e); }
 } // end Exposify.prototype.doGenerateGradebook
-
 
 /**
  * Create an alert dialog box to be displayed to the user. The alert is comprised of an alert type, which should be
@@ -1311,7 +1278,6 @@ Exposify.prototype.doMakeAlert = function(confirmation) {
     return dialog; // Return the function without executing it.
   } catch(e) { this.logError('Exposify.prototype.doMakeAlert', e); }
 } // end Exposify.prototype.doMakeAlert
-
 
 /**
  * Make Google Apps Data Validation objects for applying grade validation to a new gradebook.
@@ -1351,11 +1317,10 @@ Exposify.prototype.doMakeGradeValidations = function(courseNumber) {
   } catch(e) { this.logError('Exposify.prototype.doMakeGradeValidations', e); }
 } // end Exposify.prototype.doMakeGradeValidations
 
-
 /**
  * Make a new Google Docs file for use as a paper template.
  * @param {string} title - The title of the Docs file.
- * @return {Document} - The Google Apps Document object.
+ * @return {Document} document - The Google Apps Document object.
  */
 Exposify.prototype.doMakeNewTemplate = function(title) {
   try {
@@ -1395,7 +1360,6 @@ Exposify.prototype.doMakeNewTemplate = function(title) {
     return document;
   } catch(e) { this.logError('Exposify.prototype.doMakeNewTemplate', e); }
 } // end Exposify.prototype.doMakeNewTemplate
-
 
 /**
  * Calculate a schedule for a course, which is complicated so I don't know if it will always be 100% accurate but probably good enough.
@@ -1457,7 +1421,6 @@ Exposify.prototype.doMakeSchedule = function(semesterBeginsDate, meetingDays, me
   } catch(e) { this.logError('Exposify.prototype.doMakeSchedule', e); }
 } // end Exposify.prototype.doMakeSchedule
 
-
 /**
  * Extract student names and ids from the 'participant data file compatible with Microsoft Excel' downloadable
  * from the Site Info page of a Sakai course site. This function will only work if that file has been unmodified.
@@ -1503,7 +1466,6 @@ Exposify.prototype.doParseSpreadsheet = function(params) {
   } catch(e) { this.logError('Exposify.prototype.doParseSpreadsheet', e); }
 } // end Exposify.prototype.doParseSpreadsheet
 
-
 /**
  * Set formulas for automatically calculating final grades in gradebooks that require it.
  * @param {Sheet} sheet - The Google Apps Sheet object to modify.
@@ -1521,7 +1483,6 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
     calcRange.setFormulas(formulas); // apply the formulas to the Range object
   } catch(e) { this.logError('Exposify.prototype.doSetFormulas', e); }
 } // end Exposify.prototype.doFormatSheetSpecialRules
-
 
 /**
  * Make the gradebook easier to read by setting alternating shaded and unshaded rows.
@@ -1549,7 +1510,6 @@ Exposify.prototype.doSetFormulas = function(sheet, courseNumber) {
   } catch(e) { this.logError('Exposify.prototype.doSetShadedRows', e); }
 } // end Exposify.prototype.doSetShadedRows
 
-
 /**
  * Switch student name order from last name first to first name last or vice versa.
  * @param {Sheet} sheet - The Google Apps Sheet object with the gradebook to modify.
@@ -1571,7 +1531,6 @@ Exposify.prototype.doSwitchStudentNames = function(sheet) {
     this.doSetShadedRows(sheet); // because the sort will probably mess them up
   } catch(e) { this.logError('Exposify.prototype.doSwitchStudentNames', e); }
 } // end Exposify.prototype.doSwitchStudentNames
-
 
 /**
  * Execute a menu command selected by the user, first displaying an alert and then an
@@ -1620,7 +1579,6 @@ Exposify.prototype.executeMenuCommand = function(params) {
   }
 } // end Exposify.prototype.executeMenuCommand
 
-
 /**
  * Determine whether this year uses a different schedule, only if September 1 falls on a Tuesday.
  * @param {number} year - The year to check.
@@ -1632,7 +1590,6 @@ Exposify.prototype.getAlternateDesignationYearStatus = function(year) { // chang
     return firstDayOfSeptember === 2 ? true : false; // return true if the first day of September of the year being checked is a Tuesday and false otherwise
   } catch(e) { this.logError('Exposify.prototype.getAlternateDesignationYearStatus', e); }
 } // end Exposify.prototype.getAlternateDesignationYearStatus
-
 
 /**
  * Get the client secret for this script for use in the OAuth2 authorization flow. The secret is stored
@@ -1646,7 +1603,6 @@ Exposify.prototype.getClientSecret = function() {
   } catch(e) { this.logError('Exposify.prototype.getClientSecret', e); }
 } // end Exposify.prototype.getClientSecret
 
-
 /**
  * Get the client id for this script for use in the OAuth2 authorization flow. The id is stored
  * as a script property, because we don't want end users to be able to see it.
@@ -1658,7 +1614,6 @@ Exposify.prototype.getClientId = function() {
     return id;
   } catch(e) { this.logError('Exposify.prototype.getClientId', e); }
 } // end Exposify.prototype.getClientId
-
 
 /**
  * Parse a Course object into a new data object for use in creating a schedule for an attendance sheet,
@@ -1717,7 +1672,6 @@ Exposify.prototype.getCourseData = function(course) {
   }
 } // end Exposify.prototype.getCourseData
 
-
 /**
  * Get the course folder for the gradebook on the active spreadsheet.
  * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated course folder.
@@ -1731,9 +1685,9 @@ Exposify.prototype.getCourseFolder = function(sheet) {
   } catch(e) { this.logError('Exposify.prototype.getCourseFolder', e); }
 } // end Exposify.prototype.getCourseFolder
 
-
 /**
  * Look up and return the course number for this course, based on its name in the spreadsheet.
+ * @param {Sheet} sheet - The active Sheet object from which to retrieve the course number.
  * @return {string} courseNumber - The course number.
  */
 Exposify.prototype.getCourseNumber = function(sheet) {
@@ -1748,7 +1702,6 @@ Exposify.prototype.getCourseNumber = function(sheet) {
     return courseNumber;
   } catch(e) { this.logError('Exposify.prototype.getCourseNumber', e); }
 } // end Exposify.prototype.getCourseNumber
-
 
 /**
  * Return the name and section of the course for a given gradebook, e.g. "Expository Writing AB"
@@ -1767,7 +1720,6 @@ Exposify.prototype.getCourseTitle = function(sheet) {
   } catch(e) { this.logError('Exposify.prototype.getCourseTitle', e); }
 } // Exposify.prototype.getCourseTitle
 
-
 /**
  * Get the API key for this script for use in client side HTML. The key is stored as a script property,
  * because we don't want end users to be able to see it.
@@ -1780,11 +1732,10 @@ Exposify.prototype.getDeveloperKey = function() {
   } catch(e) { this.logError('Exposify.prototype.getDeveloperKey', e); }
 } // end Exposify.prototype.getDeveloperKey
 
-
 /**
  * Return the day on which Spring Break begins for a given year.
  * @param {number} year - The year to check.
- * @return {number}
+ * @return {number} - The day of the week on which spring break begins.
  */
 Exposify.prototype.getFirstDayOfSpringBreak = function(year) {
   try {
@@ -1792,7 +1743,6 @@ Exposify.prototype.getFirstDayOfSpringBreak = function(year) {
     return firstDayOfMarch + (6 - firstDayOfMarch) + 7; // Spring Break starts the second Saturday of March, so find out the first day of March, add days to get to Saturday, and add 7 to that
   } catch(e) { this.logError('Exposify.prototype.getFirstDayOfSpringBreak', e); }
 } // end Exposify.prototype.getFirstDayOfSpringBreak
-
 
 /**
  * Search for and return the subfolder, if one exists, if a given parent folder.
@@ -1810,10 +1760,10 @@ Exposify.prototype.getFolder = function(folder, name) {
   } catch(e) { this.logError('Exposify.prototype.getFolder', e); }
 } // end Exposify.prototype.getFolder
 
-
 /**
  * Get the graded papers folder for the gradebook on the active spreadsheet.
  * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated graded papers folder.
+ * @return {Folder} folder - The graded papers folder or null if it doesn't exist.
  */
 Exposify.prototype.getGradedPapersFolder = function(sheet) {
   try {
@@ -1821,7 +1771,6 @@ Exposify.prototype.getGradedPapersFolder = function(sheet) {
     return this.getFolder(courseFolder, GRADED_PAPERS_FOLDER_NAME);
   } catch(e) { this.logError('Exposify.prototype.getGradedPapersFolder', e); }
 } // end Exposify.prototype.getGradedPapersFolder
-
 
 /**
  * Sanitize HTML text and return an HtmlOutput object that can be displayed to the user.
@@ -1836,7 +1785,6 @@ Exposify.prototype.getHtmlOutput = function(html) {
     return output;
   } catch(e) { this.logError('Exposify.prototype.getHtmlOutput', e); }
 } // end Exposify.prototype.getHtmlOutput
-
 
 /**
  * Sanitize HTML from a file and return an HtmlOutput object that can be displayed to the user.
@@ -1853,12 +1801,11 @@ Exposify.prototype.getHtmlOutputFromFile = function(filename) {
   } catch(e) { this.logError('Exposify.prototype.getHtmlOutputFromFile', e); }
 }; // end Exposify.prototype.getHtmlOutputFromFile
 
-
 /**
  * Return the last day of a month for a given year.
  * @param {number} month - A month.
  * @param {year} year - A year.
- * @return {number}
+ * @return {number} - The day of the week on which the last day of a month occurs.
  */
 Exposify.prototype.getLastDayOfMonth = function(month, year) {
   try {
@@ -1866,7 +1813,6 @@ Exposify.prototype.getLastDayOfMonth = function(month, year) {
     return month === 2 ? year & 3 || !(year % 25) && year & 15 ? 28 : 29 : 30 + (month + (month >> 3 ) & 1); // do some bit twiddling to figure out the last day of any given month, hard to read code courtesy of http://jsfiddle.net/TrueBlueAussie/H89X3/22/
   } catch (e) { this.logError('Exposify.prototype.getLastDayOfMonth', e); }
 } // end Exposify.prototype.getLastDayOfMonth
-
 
 /**
  * Search a given folder for a file matching the given regular expression and, optionally, with a specific MIME type.
@@ -1892,7 +1838,6 @@ Exposify.prototype.getMatchedFiles = function(folder, re, type) {
   } catch(e) { this.logError('Exposify.prototype.getMatchedFiles', e); }
 } // end Exposify.prototype.getMatchedFiles
 
-
 /**
  * Switch a name from "last, first" to "first last" order.
  * @param {string} name - A name in last, first order.
@@ -1910,7 +1855,6 @@ Exposify.prototype.getNameFirstLast = function(name) {
   } catch(e) { this.logError('Exposify.prototype.getNameFirstLast', e); }
 } // end Exposify.prototype.getNameFirstLast
 
-
 /**
  * Switch a name from "first last" to "last, first" order.
  * @param {string} name - A name in first last order.
@@ -1923,7 +1867,6 @@ Exposify.prototype.getNameLastFirst = function(name) {
     return newName;
   } catch(e) { this.logError('Exposify.prototype.getNameLastFirst', e); }
 } // end Exposify.prototype.getNameLastFirst
-
 
 /**
  * Get authorization for Drive access from client side code by calling a dummy function, just in case
@@ -1941,9 +1884,9 @@ Exposify.prototype.getOAuthToken = function() {
   } catch(e) { this.logError('Exposify.prototype.getOAuthToken', e); }
 } // end Exposify.prototype.getOAuthToken
 
-
 /**
  * Get the root Google Drive folder.
+ * @return {Folder} folder - The root "My Drive" folder.
  */
 Exposify.prototype.getRootFolder = function() {
   try {
@@ -1951,10 +1894,10 @@ Exposify.prototype.getRootFolder = function() {
   } catch(e) { this.logError('Exposify.prototype.getRootFolder', e); }
 } // end Exposify.prototype.getRootFolder
 
-
 /**
  * Get the semester folder for the gradebook on the active spreadsheet.
  * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated semester folder.
+ * @return {Folder} folder - The semester folder or null if it doesn't exist.
  */
 Exposify.prototype.getSemesterFolder = function(sheet) {
   try {
@@ -1964,7 +1907,6 @@ Exposify.prototype.getSemesterFolder = function(sheet) {
     return semesterFolder;
   } catch(e) { this.logError('Exposify.prototype.getSemesterFolder', e); }
 } // end Exposify.prototype.getSemesterFolder
-
 
 /**
  * Return the name of the course for a given gradebook.
@@ -1980,7 +1922,6 @@ Exposify.prototype.getSectionTitle = function(sheet) {
   } catch(e) { this.logError('Exposify.prototype.getSectionTitle', e); }
 } // end Exposify.prototype.getSectionTitle
 
-
 /**
  * Return the semester for which a given gradebook is used.
  * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve the semester.
@@ -1993,11 +1934,10 @@ Exposify.prototype.getSemesterTitle = function(sheet) {
   } catch(e) { this.logError('Exposify.prototype.getSemesterTitle', e); }
 } // end Exposify.prototype.getSemesterTitle
 
-
 /**
  * Return a string that concatenates a given semester with the current year.
  * @param {string} semester - A semester.
- * @return {string}
+ * @return {string} - The semester and year, e.g. "Fall 2015".
  */
 Exposify.prototype.getSemesterYearString = function(semester) {
   try {
@@ -2006,11 +1946,10 @@ Exposify.prototype.getSemesterYearString = function(semester) {
   } catch(e) { this.logError('Exposify.prototype.getSemesterYearString', e); }
 } // end Exposify.prototype.getSemesterYearString
 
-
 /**
  * Check whether a gradebook has been set up for a Sheet. Return true if so, false otherwise.
  * @param {Sheet} sheet - The Google Apps Sheet object to check.
- * @return {boolean}
+ * @return {boolean} - True if a gradebook has been set up for the active sheet and false otherwise.
  */
 Exposify.prototype.getSheetStatus = function(sheet) {
   try {
@@ -2020,7 +1959,6 @@ Exposify.prototype.getSheetStatus = function(sheet) {
     return status === 'active' ? true : false;
   } catch(e) { this.logError('Exposify.prototype.getSheetStatus', e); }
 } // end Exposify.prototype.getSheetStatus
-
 
 /**
  * Retrieve student data from the gradebook and convert it into an array of Student objects.
@@ -2042,7 +1980,6 @@ Exposify.prototype.getStudents = function(sheet) {
   } catch(e) { this.logError('Exposify.prototype.getStudents', e); }
 } // end Exposify.prototype.getStudents
 
-
 /**
  * Return the number of students in the active gradebook.
  * @param {Sheet} sheet - A Google Apps Sheet object with the gradebook to count.
@@ -2055,7 +1992,6 @@ Exposify.prototype.getStudentCount = function(sheet) {
     return count;
   } catch (e) { this.logError('Exposify.prototype.getStudentCount', e); }
 } // end Exposify.prototype.getStudentCount
-
 
 /**
  * Search by name for the email address of a student
@@ -2078,10 +2014,10 @@ Exposify.prototype.getStudentEmail = function(students, name) {
     } catch(e) { this.logError('Exposify.prototype.getStudentEmail', e); }
 } // end Exposify.prototype.getStudentEmail
 
-
 /**
  * Get the student folders for the gradebook on the active spreadsheet.
  * @param {Sheet} sheet - A Google Apps Sheet object, the gradebook for which we want the associated student folders.
+ * @return {Array} studentFolders - An array containing individual student folders or null if the graded papers folder doesn't exist.
  */
 Exposify.prototype.getStudentFolders = function(sheet) {
   try {
@@ -2099,7 +2035,6 @@ Exposify.prototype.getStudentFolders = function(sheet) {
     }
   } catch(e) { this.logError('Exposify.prototype.getStudentFolders', e); }
 } // end Exposify.prototype.getStudentFolders
-
 
 /**
  * Retrieve student names from the gradebook, in first name first order.
@@ -2119,11 +2054,10 @@ Exposify.prototype.getStudentNames = function(sheet) {
   } catch(e) { this.logError('Exposify.prototype.getStudentNames', e); }
 } // end Exposify.prototype.getStudentNames
 
-
 /**
  * Return the date on which Thanksgiving falls in November for a given year.
  * @param {number} year - A year.
- * @return {number}
+ * @return {number} - The day of the month on which Thanksgiving occurs.
  */
 Exposify.prototype.getTuesdayOfThanksgivingWeek = function(year) {
   try {
@@ -2141,7 +2075,6 @@ Exposify.prototype.getTuesdayOfThanksgivingWeek = function(year) {
   } catch(e) { this.logError('Exposify.prototype.getTuesdayOfThanksgivingWeek', e); }
 } // end Exposify.prototype.getTuesdayOfThanksgivingWeek
 
-
 /**
  * Count the words in a set of documents according to a supplied regular expression.
  * @param {Sheet} sheet - A Google Apps Sheet object.
@@ -2155,17 +2088,8 @@ Exposify.prototype.getWordCounts = function(sheet, re) {
       var e = 'No course folder could be found for this gradebook.';
       throw e; // throw an exception if there's no course folder present
     }
-    var type = 'application/vnd.google-apps.document';
+    var type = MIME_TYPE_GOOGLE_DOC;
     var filtered = this.getMatchedFiles(courseFolder, re, type);
-//    var filesIter = courseFolder.getFiles();
-//     var filtered = [];
-//     while (filesIter.hasNext()) {
-//       var file = filesIter.next();
-//       var match = file.getName().match(re); // match each filename found in the course folder against the supplied regular expression
-//       if (match !== null && file.getMimeType() === 'application/vnd.google-apps.document') { // make sure the document is a Google Doc
-//         filtered.push(file);
-//       }
-//     }
     var counts = [];
     filtered.forEach(function(file) {
       var doc = DocumentApp.openById(file.getId()).getBody().getText();
@@ -2178,7 +2102,6 @@ Exposify.prototype.getWordCounts = function(sheet, re) {
     return counts;
   } catch(e) { this.logError('Exposify.prototype.getWordCounts', e); }
 } // end Exposify.prototype.getWordCounts
-
 
 /**
  * Log a function and exception caught by another function to a spreadsheet on my Google Drive
@@ -2207,11 +2130,10 @@ Exposify.prototype.logError = function(callingFunction, traceback) {
     }
     pasteRange.setValues([info]);
   }
-  var msg = 'I\'m sorry, but there was a problem! Try again, because sometimes the problem is Google, not Exposify. But you can tell Steve you saw this error message, and maybe he can fix it:\n(' + errorLogSheet.getLastRow() + ') ' + traceback;
+  var msg = 'I\'m sorry, but there was a problem! Try again, because sometimes the problem is Google, not Exposify. But you can tell Steve you saw this error message, and maybe he can fix it:\n\n(' + errorLogSheet.getLastRow() + ') ' + traceback;
   var alert = this.alert({msg: msg});
   alert(); // this will be annoying if there are too many of them
 } // end Exposify.prototype.logError
-
 
 /**
  * Record the email address of someone who installs Exposify and the Google Docs
@@ -2239,7 +2161,6 @@ Exposify.prototype.logInstall = function() {
   }
 } // end Exposify.prototype.logInstall
 
-
 /**
  * Set a list of given grade validations as data validations on a given Sheet object.
  * @param {Sheet} sheet - A Google Apps Sheet object on which to set the data validations.
@@ -2253,12 +2174,11 @@ Exposify.prototype.setGradeValidations = function(sheet, gradeValidations) {
   } catch(e) { this.logError('Exposify.prototype.setGradeValidations', e); }
 } // end Exposify.prototype.setGradeValidations
 
-
 /**
  * Set a property for this document indicating that a gradebook has been set up on
- * this sheet. Return true if successful, false otherwise.
+ * this sheet.
  * @param {Sheet} sheet - Google Apps Sheet object for which to set the property.
- * @return {boolean}
+ * @return {boolean} - True if successful, false otherwise.
  */
 Exposify.prototype.setSheetStatus = function(sheet) {
   try {
@@ -2269,7 +2189,6 @@ Exposify.prototype.setSheetStatus = function(sheet) {
     return check === true ? true : false;
   } catch(e) { this.logError('Exposify.prototype.setSheetStatus', e); }
 } // end Exposify.prototype.setSheetStatus
-
 
 /**
  * Convert a CSV or Google Sheets file into a list of student names and add them to the
@@ -2310,7 +2229,6 @@ Exposify.prototype.setupAddStudents = function(sheet, id) {
   }
 } // end Exposify.prototype.setupAddStudents
 
-
 /**
  * Create a Google Contacts contact group for the students listed in the active gradebook.
  * @param {Sheet} sheet - The Google Apps Sheet object from which to retrieve student names.
@@ -2342,7 +2260,6 @@ Exposify.prototype.setupCreateContacts = function(sheet) {
     spreadsheet.toast(ALERT_SETUP_CREATE_CONTACTS_SUCCESS.replace('$', contactGroupTitle), TOAST_TITLE, TOAST_DISPLAY_TIME); // '$' is replaced with the name of the contact group
   } catch(e) { this.logError('Exposify.prototype.setupCreateContacts', e); }
 } // end Exposify.prototype.setupCreateContacts
-
 
 /**
  * Create a folder structure in Google Drive for the gradebook on the active sheet.
@@ -2404,7 +2321,6 @@ Exposify.prototype.setupCreateFolderStructure = function(sheet) {
   } catch(e) { this.logError('Exposify.prototype.setupCreateFolderStructure', e); }
 } // end Exposify.prototype.setupCreateFolderStructure
 
-
 /**
  * Convert user input, collected from a dialog box, into a newly formatted gradebook.
  * @param {Object} courseInfo - User input collected into an object.
@@ -2440,7 +2356,6 @@ Exposify.prototype.setupNewGradebook = function(sheet, courseInfo) {
     this.logError('Exposify.prototype.setupNewGradebook', e);
   }
 } // end Exposify.prototype.setupNewGradebook
-
 
 /**
  * Share the course folder with all students in the section, and share their graded papers folders with each
@@ -2498,7 +2413,6 @@ Exposify.prototype.setupShareFolders = function(sheet) {
   } catch(e) { this.logError('Exposify.prototype.setupShareFolders', e); }
 } // end Exposify.prototype.setupShareFolders
 
-
 /**
  * Display a sidebar to the user.
  * @param {Object} sidebar - An object literal constant containing data for building the sidebar.
@@ -2514,12 +2428,10 @@ Exposify.prototype.showHtmlSidebar = function(sidebar) {
   } catch(e) { this.logError('Exposify.prototype.showHtmlSidebar', e); }
 } // end Exposify.prototype.showHtmlSidebar
 
-
 // FORMAT FUNCTIONS
 
-
 /**
- * Apply a format to a sheet.
+ * Apply a set of formatting options to the active sheet object.
  * @param {Sheet} sheet - The Sheet object to which to apply the format.
  */
 Format.prototype.apply = function(sheet) {
@@ -2566,7 +2478,6 @@ Format.prototype.apply = function(sheet) {
     sheet.setName(this.sheetName); // name sheet with section number
   } catch(e) { expos.logError('Format.prototype.apply', e); }
 } // end Format.prototype.apply
-
 
 /**
  * Set the format to shade alternating rows.

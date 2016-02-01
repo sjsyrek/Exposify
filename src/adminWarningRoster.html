@@ -3,7 +3,13 @@ Modal dialog box for Exposify.gs called from exposifyAdminGenerateWarningRoster(
 
 <div>
   <form id='warning_roster'>
-    <div id='heading' class='title'>Which students should receive warnings?</div>    
+    <div id='heading' class='title'>Which students should receive warnings?
+    <p>
+    W1 Warning for poor performance (e.g. non-passing and/or missing work.)<br />
+    W2 Warning for poor attendance or "never attended."<br />
+    W3 Warning for poor performance and poor attendance.<br />
+    </p>
+    </div>
     <div id='inner'></div>
     <div id ='buttons'>
       <input class='button' type='submit' name='submit' id='submit' value='OK'>
@@ -11,6 +17,7 @@ Modal dialog box for Exposify.gs called from exposifyAdminGenerateWarningRoster(
     </div>
   </form>      
 </div>
+
 <script src='https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js'></script>
 <script>
   $( document ).ready(function() {  
@@ -35,19 +42,20 @@ Modal dialog box for Exposify.gs called from exposifyAdminGenerateWarningRoster(
       google.script.host.close(); // close dialog box
     }); // end submit()
   }); // end ready()
+  
   function displayStudents(students) {
     if (students.length === 0) {
       $('#heading').replaceWith('There are no students in this section!');
     } else {
-      var none = '<label for="$w0">No warning</label><input type="radio" id="$w0" name="$" value="$:w0" checked="checked">';
-      var w1 = '<label for="$w1">W1 </label><input type="radio" id="$w1" name="$" value="$:w1">';
-      var w2 = '<label for="$w2">W2 </label><input type="radio" id="$w2" name="$" value="$:w2">';
-      var w3 = '<label for="$w3">W3 </label><input type="radio" id="$w3" name="$" value="$:w3">';
+      var none = '<label for="$w0" class="warnings">No warning</label><input type="radio" id="$w0" name="$" value="$:w0" checked="checked">';
+      var w1 = '<label for="$w1" class="warnings">W1 </label><input type="radio" id="$w1" name="$" value="$:w1">';
+      var w2 = '<label for="$w2" class="warnings">W2 </label><input type="radio" id="$w2" name="$" value="$:w2">';
+      var w3 = '<label for="$w3" class="warnings">W3 </label><input type="radio" id="$w3" name="$" value="$:w3">';
       var radios = w1 + w2 + w3 + none;
-      students.forEach( function(student) {
+      students.forEach(function(student) {
         var name = student.name;
         var netid = student.netid;
-        var item = '<div class="radio">' + radios + name + ' (' + netid + ')</div>';
+        var item = '<div class="warning_radios">' + radios + '<span class="name">' + name + ' (' + netid + ')</span></div>';
         var nameId = name + ":" + netid;
         var re = /\$/g;
         var item = item.replace(re, nameId);
@@ -56,6 +64,7 @@ Modal dialog box for Exposify.gs called from exposifyAdminGenerateWarningRoster(
     }    
     $('#heading').show();
     $('#buttons').show();
+    
   } // end displayStudents()
   function makeStudent(value) {
 	var split = value.split(':');
